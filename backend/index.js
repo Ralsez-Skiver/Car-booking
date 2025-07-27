@@ -1,13 +1,55 @@
 const express = require('express');
+const session = require('express-session');
+const cors = require('cors');
+
 const app = express();
+const PORT = 3001;
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('Hello from Node.js backend!');
+app.use(session({
+  secret: 'mock-ms-secret',
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60,
+  },
+}));
+
+app.post('/login', (req, res) => {
+  const { username, role } = req.body;
+
+  if (!username || !role) {
+    return res.status(400).json({ error: 'Username and role required' });
+  }
+
+  // save usr session
+  req.session.user = { username, role };
+  res.json({ message: 'Login successful', user: req.session.user });
 });
 
-const PORT = process.env.PORT || 8000;
+app.get('/me', (req, res) => {
+  if (req.session.user) {
+    res.json(req.session.user);
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ message: 'Logged out' });
+  });
+});
+
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`backend running on http://localhost:${PORT}`);
 });
