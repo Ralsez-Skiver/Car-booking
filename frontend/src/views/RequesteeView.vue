@@ -1,7 +1,6 @@
 <template>
   <div>
     <AccountBar />
-
     <component
       :is="currentComponent"
       :formData="formData"
@@ -15,18 +14,20 @@
 <script>
 import AccountBar from '@/components/AccountBar.vue'
 import InformationField from '@/components/InformationField.vue'
+import MapDisplay from '@/components/MapDisplay.vue'
 import RequesteePastData from '@/components/RequesteePastData.vue'
 
 export default {
   components: {
     AccountBar,
     RequesteePastData,
-    InformationField
+    InformationField,
+    MapDisplay
   },
   data() {
     return {
       step: 0,
-      steps: ['RequesteePastData', 'InformationField', 'StepSummary'],
+      steps: ['RequesteePastData', 'InformationField', 'MapDisplay'],
       formData: {
         tbd1: '',
         tbd2: '',
