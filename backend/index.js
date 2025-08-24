@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
+const connection_pool = require('./database');
 
 const app = express();
 const PORT = 3001;
@@ -49,7 +50,27 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// Start the server
+
+app.get('/requestee_past_data', async (req, res) => {
+  try {
+    // console.log('Session:', req.session);
+    const username = req.session.user?.username
+
+    if (!username) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    const [rows] = await connection_pool.query(
+      'SELECT * FROM booking_request WHERE requester = ?',
+      [username]
+    );
+    res.json(rows)
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server error')
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`backend running on http://localhost:${PORT}`);
 });

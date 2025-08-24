@@ -1,97 +1,122 @@
-<template>
-  <div class="bar-container">
-    <div
-      v-for="(day, index) in dailyData"
-      :key="day.date"
-      class="bar-wrapper"
-    >
-      <div class="bar" @click="toggleExpand(index)">
-        <span class="bar-label">{{ day.date }}</span>
-      </div>
-      <div v-if="expandedIndex === index" class="details">
-        <p><strong>Details for {{ day.date }}:</strong></p>
-        <p>{{ day.details }}</p>
+  <template>
+    <div class="bar-container">
+      <button class="next-btn" @click="$emit('next')">
+        Request car booking
+      </button>
+
+      <div class="list-container">
+        <div
+          v-for="(day, index) in dataFormatted"
+          :key="day.date + index"
+          class="bar-wrapper"
+        >
+          <div class="bar" @click="toggleExpand(index)">
+            <span class="bar-label">{{ day.date }}</span>
+          </div>
+          <div v-if="expandedIndex === index" class="details">
+            <p><strong>Details for {{ day.date }}:</strong></p>
+            <p>
+              <strong>Passengers:</strong> {{ day.details.passenger }} <br>
+              <strong>Luggage:</strong> {{ day.details.luggage }} <br>
+              <strong>Pickup Time:</strong> {{ day.details.pickupTime }} <br>
+              <strong>Return Time:</strong> {{ day.details.returnTime }} <br>
+              <strong>From:</strong> {{ day.details.origin }}  To: {{ day.details.destination }}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
+  </template>
 
-    <button class="next-btn" @click="$emit('next')">
-      Request car booking
-    </button>
-  </div>
-</template>
 
-<script setup>
-import { ref } from 'vue'
+  <script setup>
+  import { onMounted, ref } from 'vue'
+  import { stringifyQuery } from 'vue-router';
 
-const expandedIndex = ref(null)
+  const expandedIndex = ref(null)
+  const dataFormatted = ref([])
 
-const dailyData = ref([
-  { date: '2025-07-24', value: 100, details: 'Sample data for 2025-07-24' },
-  { date: '2025-07-25', value: 60, details: 'Sample data for 2025-07-25' },
-  { date: '2025-07-26', value: 80, details: 'Sample data for 2025-07-26' },
-  { date: '2025-07-27', value: 50, details: 'Sample data for 2025-07-27' },
-  { date: '2025-07-24', value: 100, details: 'Sample data for 2025-07-24' },
-  { date: '2025-07-25', value: 60, details: 'Sample data for 2025-07-25' },
-  { date: '2025-07-26', value: 80, details: 'Sample data for 2025-07-26' },
-  { date: '2025-07-27', value: 50, details: 'Sample data for 2025-07-27' },
-  { date: '2025-07-24', value: 100, details: 'Sample data for 2025-07-24' },
-  { date: '2025-07-25', value: 60, details: 'Sample data for 2025-07-25' },
-  { date: '2025-07-26', value: 80, details: 'Sample data for 2025-07-26' },
-  { date: '2025-07-27', value: 50, details: 'Sample data for 2025-07-27' },
-  { date: '2025-07-24', value: 100, details: 'Sample data for 2025-07-24' },
-  { date: '2025-07-25', value: 60, details: 'Sample data for 2025-07-25' },
-  { date: '2025-07-26', value: 80, details: 'Sample data for 2025-07-26' },
-  { date: '2025-07-27', value: 50, details: 'Sample data for 2025-07-27' },
-])
+  onMounted(async () => {
+    try {
+      const res = await fetch('http://localhost:3001/requestee_past_data', { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error('Failed to fetch past data');
+      }
+      const data = await res.json();
+      console.log('Fetched data:', data);
+      dataFormatted.value = data.map(item => ({
+        date: new Date(item.pick_up_time_dept).toLocaleDateString(),
+        details: {
+          passenger: item.passenger,
+          luggage: item.luggage,
+          origin: `(${item.origin_lat}, ${item.origin_long})`,
+          destination: `(${item.destination_lat}, ${item.destination_long})`,
+          pickupTime: new Date(item.pick_up_time_dept).toLocaleTimeString(),
+          returnTime: new Date(item.pick_up_time_return).toLocaleTimeString(),
+        }
+      }))
+    } catch (error) {
+      console.error(error);
+    }
+  });
 
-const toggleExpand = (index) => {
-  expandedIndex.value = expandedIndex.value === index ? null : index
-}
-</script>
+  const toggleExpand = (index) => {
+    expandedIndex.value = expandedIndex.value === index ? null : index
+  }
+  </script>
 
-<style scoped>
-.bar-container {
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 1rem;
-  gap: 10px;
-  width: 50%;
-  margin: auto;
-  max-height: 80vh;
-  overflow-y: auto;
-  height: 80vh;
-}
+  <style scoped>
+  .bar-container {
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+    margin: auto;
+    height: 80vh;
+    padding: 1rem;
+  }
 
-.bar-wrapper {
-  width: 100%;
-}
+  .next-btn {
+    margin-top: 10px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
 
-.bar {
-  background-color: #4caf50;
-  color: white;
-  cursor: pointer;
-  padding: 10px;
-  border-radius: 4px;
-}
+  .list-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
 
-.bar-label {
-  font-weight: bold;
-}
+  .bar-wrapper {
+    width: 100%;
+  }
 
-.details {
-  background-color: #f1f1f1;
-  padding: 10px;
-  border-left: 4px solid #4caf50;
-  border-radius: 0 0 4px 4px;
-}
+  .bar {
+    background-color: #4caf50;
+    color: white;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 4px;
+  }
 
-.next-btn {
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #2196f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-</style>
+  .bar-label {
+    font-weight: bold;
+  }
+
+  .details {
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 0 0 4px 4px;
+  }
+  </style>
+
