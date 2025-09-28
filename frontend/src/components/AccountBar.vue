@@ -1,10 +1,10 @@
 <template>
   <header class="top-banner">
     <div class="user-info">
-      Logged in as: <strong>{{ username }}</strong>
+      <strong>{{ username }}</strong>
     </div>
     <button @click="logout" class="logout-button">
-      Logout
+      <strong>Logout</strong>
     </button>
   </header>
 </template>
@@ -48,11 +48,12 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
-  background-color: #2c3e50;
-  color: #ecf0f1;
+  padding: 12px 36px;
+  background-color: #1a237e;
+  color: #f9f9f9;
   font-family: Arial, sans-serif;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
 }
 
 .user-info {
@@ -62,14 +63,15 @@ export default {
 .logout-button {
   padding: 6px 12px;
   font-size: 14px;
-  background-color: #e74c3c;
-  color: white;
+  background-color: #3f51b5;
+  color: #f9f9f9;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-family: Arial, sans-serif;
 }
 
 .logout-button:hover {
-  background-color: #c0392b;
+  background-color: #5c6cb0;
 }
 </style>

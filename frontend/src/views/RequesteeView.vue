@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="RequesteeView">
     <AccountBar />
     <component
       :is="currentComponent"
@@ -60,3 +60,15 @@ export default {
   }
 }
 </script>
+
+<style>
+.ReqesteeView {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0 1rem;
+  background: #faf9f6;
+}
+</style>

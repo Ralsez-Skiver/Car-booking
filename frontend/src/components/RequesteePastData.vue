@@ -1,18 +1,24 @@
   <template>
     <div class="bar-container">
+      
       <button class="next-btn" @click="$emit('next')">
         Request car booking
       </button>
 
-      <div class="list-container">
+      <div  @click="ExpandList" class="toggle-booking-data">
+        {{ BoolExpandPastData ? 'Hide previous bookings' : 'View previous bookings'}}
+      </div>
+
+      <div v-if="BoolExpandPastData" class="list-container">
         <div
           v-for="(day, index) in dataFormatted"
           :key="day.date + index"
           class="bar-wrapper"
         >
-          <div class="bar" @click="toggleExpand(index)">
+          <div class="bar" @click="ExpandDataDetail(index)">
             <span class="bar-label">{{ day.date }}</span>
           </div>
+
           <div v-if="expandedIndex === index" class="details">
             <p><strong>Details for {{ day.date }}:</strong></p>
             <p>
@@ -23,16 +29,17 @@
               <strong>From:</strong> {{ day.details.origin }}  To: {{ day.details.destination }}
             </p>
           </div>
+
         </div>
       </div>
+
     </div>
   </template>
 
 
   <script setup>
   import { onMounted, ref } from 'vue'
-  import { stringifyQuery } from 'vue-router';
-
+  
   const expandedIndex = ref(null)
   const dataFormatted = ref([])
 
@@ -60,8 +67,13 @@
     }
   });
 
-  const toggleExpand = (index) => {
+  const ExpandDataDetail = (index) => {
     expandedIndex.value = expandedIndex.value === index ? null : index
+  }
+
+  const BoolExpandPastData = ref(false)
+  const ExpandList = () => {
+    BoolExpandPastData.value = !BoolExpandPastData.value
   }
   </script>
 
@@ -69,54 +81,67 @@
   .bar-container {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     width: 50%;
     margin: auto;
     height: 80vh;
     padding: 1rem;
+    font-family: Arial, sans-serif;
   }
 
   .next-btn {
     margin-top: 10px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     padding: 10px;
-    background-color: #2196f3;
-    color: white;
+    background-color: #64b5f6;
+    color: black;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     position: sticky;
     top: 0;
-    z-index: 10;
+    font-weight: bold;
+    font-size: 16px;
   }
 
   .list-container {
-    flex-grow: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    padding-top: 10px;
   }
 
   .bar-wrapper {
-    width: 100%;
+    width: 98%;
+    margin: auto;
   }
 
   .bar {
-    background-color: #4caf50;
-    color: white;
+    background-color: #a2e494;
+    color: #333333;
     cursor: pointer;
     padding: 10px;
     border-radius: 4px;
   }
 
-  .bar-label {
-    font-weight: bold;
+  .details {
+    background-color: #cbf5c7;
+    border-radius: 0 0 4px 4px;
+    padding: 1px 0 1px 10px;
   }
 
-  .details {
-    background-color: #f1f1f1;
+  .toggle-booking-data {
     padding: 10px;
-    border-radius: 0 0 4px 4px;
+    background-color: #9e9e9e;
+    color: black;
+    border-radius: 4px;
+    cursor: pointer;
+    position: sticky;
+    top: 0;
+    font-weight: bold;
+    text-align: center;
+    font-size: 16px;
   }
   </style>
 

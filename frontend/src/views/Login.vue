@@ -50,7 +50,7 @@ export default {
   justify-content: center;
   align-items: center;
   padding: 0 1rem;
-  background: #f9f9f9;
+  background: #faf9f6;
 }
 
 .login-form {
