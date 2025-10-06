@@ -14,79 +14,87 @@
 </template>
 
 
-<script setup>
+<script>
 import 'leaflet/dist/leaflet.css'
-import { ref, onMounted } from 'vue'
 import L from 'leaflet'
 
-const emit = defineEmits(['next', 'back', 'update-data'])
+export default {
+  emits: ['next', 'back', 'update-data'],
+  data() {
+    return {
+      map: null,
+      markers: [],
+      markerLocations: [],
+      markerLabels: ['From', 'To', 'Back']
+    }
+  },
+  mounted() {
+    this.map = L.map(this.$refs.mapElement).setView([13.75, 100.5], 12)
 
-const mapElement = ref(null)
-const map = ref(null)
-const markers = ref([])
-const markerLocations = ref([])
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(this.map)
 
-const markerLabels = ['From', 'To', 'Back']
+    setTimeout(() => {
+      this.map.invalidateSize()
+    }, 100)
 
-onMounted(() => {
-  map.value = L.map(mapElement.value).setView([13.75, 100.5], 12)
+    this.map.on('click', (e) => {
+      if (this.markerLocations.length >= 3) return
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map.value)
+      const { lat, lng } = e.latlng
+      this.markerLocations.push({ lat, lng })
 
-  map.value.on('click', (e) => {
-    if (markerLocations.value.length >= 3) return
+      const label = this.markerLabels[this.markerLocations.length - 1]
 
-    const { lat, lng } = e.latlng
-    markerLocations.value.push({ lat, lng })
-
-    const label = markerLabels[markerLocations.value.length - 1]
-
-    const marker = L.marker([lat, lng], {
+      const marker = L.marker([lat, lng], {
         draggable: true
-    }).addTo(map.value)
+      }).addTo(this.map)
 
-    marker.bindPopup(label)
+      marker.bindPopup(label)
 
-    marker.on('dragend', (event) => {
-      const position = event.target.getLatLng()
-      const index = markers.value.indexOf(event.target)
-      if (index !== -1) {
-        markerLocations.value[index] = {
-          lat: position.lat,
-          lng: position.lng
+      marker.on('dragend', (event) => {
+        const position = event.target.getLatLng()
+        const index = this.markers.indexOf(event.target)
+        if (index !== -1) {
+          this.markerLocations[index] = {
+            lat: position.lat,
+            lng: position.lng
+          }
         }
-      }
+      })
+
+      this.markers.push(marker)
     })
-
-    markers.value.push(marker)
-  })
-})
-
-function proceed() {
-  const locations = [...markerLocations.value]
-  if (locations.length < 2) {
-    alert('Please select at least 2 locations: From and To.')
-    return
+  },
+  methods: {
+    proceed() {
+      const locations = [...this.markerLocations]
+      if (locations.length < 2) {
+        alert('Please select at least 2 locations: From and To.')
+        return
+      }
+      if (locations.length === 2) {
+        locations.push(locations[0])
+      }
+      this.$emit('update-data', {
+        locations
+      })
+      this.$emit('next')
+    }
   }
-  if (locations.length === 2) {
-    locations.push(locations[0])
-  }
-  emit('update-data', {
-    locations
-  })
-  emit('next')
 }
 </script>
+
 
 
 <style scoped>
 .map-container {
   position: relative;
-  width: 100vw;
+  width: 100%;
   height: calc(100vh - 56px);
-}
+  overflow: hidden;
+  }
 
 #map {
   width: 100%;

@@ -10,23 +10,40 @@
       </div>
 
       <div v-if="BoolExpandPastData" class="list-container">
+        <div v-if="dataFormatted.length === 0" class="no-data-message">
+          No past data found.
+        </div>
+
         <div
           v-for="(day, index) in dataFormatted"
           :key="day.date + index"
           class="bar-wrapper"
         >
-          <div class="bar" @click="ExpandDataDetail(index)">
+          <div
+            class="bar"
+            :class="{
+              'approval-approved': day.details.approval === 1,
+              'approval-pending': day.details.approval === 0,
+              'approval-rejected': day.details.approval === -1
+            }"
+            @click="ExpandDataDetail(index)"
+          >
             <span class="bar-label">{{ day.date }}</span>
           </div>
 
-          <div v-if="expandedIndex === index" class="details">
-            <p><strong>Details for {{ day.date }}:</strong></p>
+          <div v-if="expandedIndex === index" class="details"
+          :class="{
+            'details-approved': day.details.approval === 1,
+            'details-pending': day.details.approval === 0,
+            'details-rejected': day.details.approval === -1
+          }">
             <p>
               <strong>Passengers:</strong> {{ day.details.passenger }} <br>
               <strong>Luggage:</strong> {{ day.details.luggage }} <br>
               <strong>Pickup Time:</strong> {{ day.details.pickupTime }} <br>
               <strong>Return Time:</strong> {{ day.details.returnTime }} <br>
-              <strong>From:</strong> {{ day.details.origin }}  To: {{ day.details.destination }}
+              <strong>From:</strong> {{ day.details.origin }} <br>
+              <strong>To:</strong> {{ day.details.destination }}
             </p>
           </div>
 
@@ -58,8 +75,9 @@
           luggage: item.luggage,
           origin: `(${item.origin_lat}, ${item.origin_long})`,
           destination: `(${item.destination_lat}, ${item.destination_long})`,
-          pickupTime: new Date(item.pick_up_time_dept).toLocaleTimeString(),
-          returnTime: new Date(item.pick_up_time_return).toLocaleTimeString(),
+          pickupTime: new Date(item.pick_up_time_dept).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false}),
+          returnTime: new Date(item.pick_up_time_return).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false}),
+          approval: item.approval
         }
       }))
     } catch (error) {
@@ -118,17 +136,47 @@
   }
 
   .bar {
-    background-color: #a2e494;
     color: #333333;
     cursor: pointer;
     padding: 10px;
     border-radius: 4px;
   }
 
+  .approval-approved {
+    background-color: #a2e494;
+  }
+
+  .approval-pending {
+    background-color: #f9f4a5
+  }
+
+  .approval-rejected {
+    background-color: #e57373
+  }
+
+  .no-data-message {
+    background-color: lightgray;
+    color: #333333;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+  }
+
   .details {
-    background-color: #cbf5c7;
     border-radius: 0 0 4px 4px;
     padding: 1px 0 1px 10px;
+  }
+
+  .details-approved {
+    background-color: #cbf5c7;
+    }
+
+  .details-pending {
+    background-color: #fff9d1
+  }
+
+  .details-rejected {
+    background-color: #f7c6c6
   }
 
   .toggle-booking-data {
@@ -142,6 +190,11 @@
     font-weight: bold;
     text-align: center;
     font-size: 16px;
+  }
+
+  strong {
+    display: inline-block;
+    width: 120px;
   }
   </style>
 

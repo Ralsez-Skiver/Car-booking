@@ -116,6 +116,7 @@ export default {
   border: 1px solid #ccc;
   padding: 8px;
   font-family: sans-serif;
+  border-radius: 4px;
 }
 
 .header {
