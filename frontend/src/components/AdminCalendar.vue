@@ -1,25 +1,27 @@
 <template>
-  <div class="calendar">
-    <div class="header">
-      <button @click="prevMonth">←</button>
-      <span>{{ currentMonthYear }}</span>
-      <button @click="nextMonth">→</button>
-    </div>
-    <div class="grid">
-      <div v-for="day in weekDays" :key="day" class="day-name">
-        {{ day }}
+  <div class="calendar-container">
+    <div class="calendar">
+      <div class="header">
+        <button @click="prevMonth">←</button>
+        <span>{{ currentMonthYear }}</span>
+        <button @click="nextMonth">→</button>
       </div>
-      <div
-        v-for="(cell, index) in paddedDays"
-        :key="index"
-        :class="['day-cell', {
-          'empty': !cell,
-          'selected': isSelected(cell),
-          'today': isToday(cell)
-        }]"
-        @click="cell && selectDate(cell)"
-      >
-        {{ cell?.getDate() }}
+      <div class="grid">
+        <div v-for="day in weekDays" :key="day" class="day-name">
+          {{ day }}
+        </div>
+        <div
+          v-for="(cell, index) in paddedDays"
+          :key="index"
+          :class="['day-cell', {
+            'empty': !cell,
+            'selected': isSelected(cell),
+            'today': isToday(cell)
+          }]"
+          @click="cell && selectDate(cell)"
+        >
+          {{ cell?.getDate() }}
+        </div>
       </div>
     </div>
   </div>
@@ -81,7 +83,9 @@ export default {
     },
     selectDate(date) {
       this.selectedDate = date;
-      const isoDate = date.toISOString().slice(0, 10);
+      const isoDate = date.getFullYear() + '-' +
+        String(date.getMonth() + 1).padStart(2, '0') + '-' +
+        String(date.getDate()).padStart(2, '0');
       this.$emit('dateSelected', isoDate);
     },
     isToday(date) {
@@ -110,10 +114,15 @@ export default {
 </script>
 
 <style scoped>
+.calendar-container {
+  padding: 1rem 1rem;
+  border-right: solid;
+  border-width: 1px;
+  border-color: #e0e0e0;
+}
+
 .calendar {
-  width: 100%;
-  max-width: 300px;
-  border: 1px solid #ccc;
+  max-width: 250px;
   padding: 8px;
   font-family: sans-serif;
   border-radius: 4px;

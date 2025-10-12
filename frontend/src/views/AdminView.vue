@@ -1,9 +1,11 @@
 <template>
   <div class="snappy-container">
+
     <section class="admin-pages">
       <AccountBar/>
       <div class="adminView-container">
-        <AdminCalendar />
+        <AdminCalendar @dateSelected="fetchBookingData"/>
+        <TimeTable :schedule="bookingData"/>
       </div>
     </section>
 
@@ -18,11 +20,30 @@
 import AccountBar from '@/components/AccountBar.vue'
 import AdminCalendar from '@/components/AdminCalendar.vue';
 import BookingRequest from '@/components/BookingRequest.vue';
+import TimeTable from '@/components/TimeTable.vue';
 
 export default {
   components: {
-    AccountBar, AdminCalendar, BookingRequest
+    AccountBar, AdminCalendar, BookingRequest, TimeTable
   },
+  data() {
+    return {
+      bookingData: []
+    };
+  },
+  methods: {
+    async fetchBookingData(date) {
+      try {
+        const response = await fetch(`http://localhost:3001/schedule?date=${date}`, {credentials: 'include'})
+        const data = await response.json();
+        this.bookingData = data;
+        console.log(data)
+      } catch (error) {
+          console.error("Error fetching:", error)
+          this.bookingData = [];
+      }
+    }
+  }
 }
 </script>
 
@@ -40,10 +61,12 @@ export default {
   height: 100vh;
   width: 100vw;
   scroll-snap-align: start;
+  overflow-y: hidden;
 }
 
 .adminView-container {
-  display: flex;
-  padding: 1rem 1rem;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
 }
 </style>

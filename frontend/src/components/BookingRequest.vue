@@ -5,7 +5,7 @@
       :formData="formData"
       @next="handleNext"
       @back="handleBack"
-      @update-data="updateFormData"
+      @updateFormData="updateFormData"
     />
   </div>
 </template>
@@ -14,21 +14,27 @@
 import InformationField from '@/components/InformationField.vue'
 import MapDisplay from '@/components/MapDisplay.vue'
 import RequesteePastData from '@/components/RequesteePastData.vue'
+import ConfirmData from './ConfirmData.vue';
+import BookingComplete from './BookingComplete.vue';
 
 export default {
   components: {
     RequesteePastData,
     InformationField,
-    MapDisplay
+    MapDisplay,
+    ConfirmData,
+    BookingComplete,
   },
   data() {
     return {
       step: 0,
-      steps: ['RequesteePastData', 'InformationField', 'MapDisplay'],
+      steps: ['RequesteePastData', 'InformationField', 'MapDisplay','ConfirmData','BookingComplete'],
       formData: {
-        tbd1: '',
-        tbd2: '',
-        tbd3: '',
+        pick_up_time_dept: '',
+        pick_up_time_return: '',
+        passenger: null,
+        luggage: null,
+        markerLocations: [],
       }
     }
   },

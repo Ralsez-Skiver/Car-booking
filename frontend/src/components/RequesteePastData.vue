@@ -43,7 +43,8 @@
               <strong>Pickup Time:</strong> {{ day.details.pickupTime }} <br>
               <strong>Return Time:</strong> {{ day.details.returnTime }} <br>
               <strong>From:</strong> {{ day.details.origin }} <br>
-              <strong>To:</strong> {{ day.details.destination }}
+              <strong>To:</strong> {{ day.details.destination }} <br>
+              <strong>Return:</strong> {{ day.details.return}}
             </p>
           </div>
 
@@ -67,14 +68,17 @@
         throw new Error('Failed to fetch past data');
       }
       const data = await res.json();
-      console.log('Fetched data:', data);
-      dataFormatted.value = data.map(item => ({
+      // console.log('Fetched data:', data);
+      dataFormatted.value = data
+      .sort((a, b) => new Date(b.pick_up_time_dept) - new Date(a.pick_up_time_dept))
+      .map(item => ({
         date: new Date(item.pick_up_time_dept).toLocaleDateString(),
         details: {
           passenger: item.passenger,
           luggage: item.luggage,
           origin: `(${item.origin_lat}, ${item.origin_long})`,
           destination: `(${item.destination_lat}, ${item.destination_long})`,
+          return: `(${item.return_lat}, ${item.return_long})`,
           pickupTime: new Date(item.pick_up_time_dept).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false}),
           returnTime: new Date(item.pick_up_time_return).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false}),
           approval: item.approval

@@ -6,7 +6,7 @@
       <div class="form-group">
         <input
           type="datetime-local"
-          v-model="form.pick_up_time_dept"
+          v-model="formData.pick_up_time_dept"
           required
           class="form-input"
         />
@@ -16,7 +16,7 @@
       <div class="form-group">
         <input
           type="datetime-local"
-          v-model="form.pick_up_time_return"
+          v-model="formData.pick_up_time_return"
           class="form-input"
         />
         <label class="form-label">Pick-up Time (Return)</label>
@@ -25,7 +25,7 @@
       <div class="form-group">
         <input
           type="number"
-          v-model.number="form.passenger"
+          v-model.number="formData.passenger"
           min="1"
           required
           class="form-input"
@@ -36,7 +36,7 @@
       <div class="form-group">
         <input
           type="number"
-          v-model.number="form.luggage"
+          v-model.number="formData.luggage"
           min="0"
           class="form-input"
         />
@@ -52,19 +52,11 @@
 
 <script>
 export default {
-  data() {
-    return {
-      form: {
-        pick_up_time_dept: '',
-        pick_up_time_return: '',
-        passenger: null,
-        luggage: null,
-      },
-    };
-  },
+  props: ['formData'],
   methods: {
     submitForm() {
-      this.$emit('next', { ...this.form });
+      this.$emit('updateFormData', { ...this.formData });
+      this.$emit('next');
     },
   },
 };

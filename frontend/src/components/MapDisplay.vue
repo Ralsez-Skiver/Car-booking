@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <button class="map-btn back-btn" @click="$emit('back')">Back</button>
+    <button class="map-btn back-btn" @click="toprevious">Back</button>
     <button class="map-btn next-btn" @click="proceed">Next</button>
   </div>
 </template>
@@ -19,13 +19,13 @@ import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
 export default {
-  emits: ['next', 'back', 'update-data'],
+  props: ['formData'],
   data() {
     return {
       map: null,
       markers: [],
       markerLocations: [],
-      markerLabels: ['From', 'To', 'Back']
+      markerLabels: ['Pick-up', 'Drop-off', 'Return']
     }
   },
   mounted() {
@@ -38,6 +38,25 @@ export default {
     setTimeout(() => {
       this.map.invalidateSize()
     }, 100)
+
+    this.markerLocations = [...(this.formData.markerLocations || [])];
+    this.markerLocations.forEach((loc, index) => {
+      const marker = L.marker([loc.lat, loc.lng], {
+        draggable: true
+      }).addTo(this.map)
+      const label = this.markerLabels[index] || `Marker ${index + 1}`;
+      marker.bindPopup(label);
+
+      marker.on('dragend', (event) => {
+        const position = event.target.getLatLng();
+        this.markerLocations[index] = {
+          lat: position.lat,
+          lng: position.lng
+        };
+      });
+
+      this.markers.push(marker)
+    });
 
     this.map.on('click', (e) => {
       if (this.markerLocations.length >= 3) return
@@ -77,10 +96,12 @@ export default {
       if (locations.length === 2) {
         locations.push(locations[0])
       }
-      this.$emit('update-data', {
-        locations
-      })
+      this.$emit('updateFormData', { markerLocations: [...this.markerLocations] })
       this.$emit('next')
+    },
+    toprevious() {
+      this.$emit('updateFormData', { markerLocations: [...this.markerLocations] })
+      this.$emit('back')
     }
   }
 }
