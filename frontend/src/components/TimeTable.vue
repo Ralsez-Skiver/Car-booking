@@ -146,7 +146,7 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  width: 60px;
+  width: 100%;
   z-index: 1;
 }
 
@@ -154,15 +154,16 @@ export default {
   position: relative;
   height: 50px;
   border-top: 1px solid #e0e0e0;
+  vertical-align: top;
+  text-align: left;
 }
 
 .time-label {
-  position: absolute;
+  /* position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  left: 0;
+  left: 0; */
   width: 60px;
-  padding: 2px 6px;
+  padding: 3px 5px;
   font-size: 12px;
   color: #555;
 }
@@ -175,6 +176,7 @@ export default {
   right: 0;
   z-index: 2;
   height: 1200px;
+  background-color: transparent;
 }
 
 /* Each event block */
