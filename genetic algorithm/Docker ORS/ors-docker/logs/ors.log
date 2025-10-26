@@ -129,3 +129,46 @@
 2025-09-28 12:30:53 INFO [o.h.o.r.RoutingProfileManager           ] - Total: 25.03 MB (28.4%)
 2025-09-28 12:30:53 INFO [o.h.o.r.RoutingProfileManager           ] - ========================================================================
 2025-09-28 12:31:08 INFO [o.h.o.a.s.l.ORSInitContextListener      ] - Shutting down openrouteservice {"build_date":"2025-06-06T15:39:25Z","graph_version":"2","graph_date":"2025-09-28T12:30:50Z","osm_date":"2024-09-08T20:21:00Z","version":"9.3.0"} and releasing resources.
+2025-10-19 12:14:16 INFO [o.h.o.a.Application                     ] - Starting Application v9.3.0 using Java 21.0.6 with PID 1 (/ors.jar started by root in /home/ors)
+2025-10-19 12:14:16 INFO [o.h.o.a.Application                     ] - The following 1 profile is active: "default"
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - 
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - Configuration lookup started.
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - ORS config file found at: /home/ors/config/ors-config.yml
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - Configuration file set by environment variable.
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - Loaded file '/home/ors/config/ors-config.yml'.
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - 
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - Environment variables overriding openrouteservice configuration parameters detected: 
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - ors.config.location=/home/ors/config/ors-config.yml
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - Configuration lookup finished.
+2025-10-19 12:14:17 INFO [o.h.o.a.ORSEnvironmentPostProcessor     ] - 
+2025-10-19 12:14:18 INFO [o.h.o.a.s.l.ORSInitContextListener      ] - Initializing ORS...
+2025-10-19 12:14:18 INFO [o.h.o.r.RoutingProfileManager           ] - Total - 1024 MB, Free - 951.86 MB, Max: 2 GB, Used - 72.14 MB
+2025-10-19 12:14:18 INFO [o.h.o.r.RoutingProfileManager           ] - ====> Initializing 1 profiles (1 threads) ...
+2025-10-19 12:14:18 INFO [o.h.o.r.RoutingProfileManager           ] - 1 profile configurations submitted as tasks.
+2025-10-19 12:14:18 INFO [o.h.o.r.g.e.c.CorePreparationHandler    ] - Using 1 threads for ch preparation threads
+2025-10-19 12:14:18 INFO [o.h.o.r.g.e.c.CoreLMPreparationHandler  ] - Using 1 threads for lm preparation threads
+2025-10-19 12:14:19 INFO [o.h.o.r.g.e.c.CorePreparationHandler    ] - Using 1 threads for ch preparation threads
+2025-10-19 12:14:19 INFO [o.h.o.r.g.e.c.CoreLMPreparationHandler  ] - Using 1 threads for lm preparation threads
+2025-10-19 12:14:19 INFO [o.h.o.r.g.e.c.CoreLMPreparationHandler  ] - Loaded landmark splitting collection from 
+2025-10-19 12:14:19 INFO [o.h.o.a.Application                     ] - Started Application in 3.37 seconds (process running for 4.811)
+2025-10-19 12:14:19 INFO [o.h.o.a.Application                     ] - openrouteservice {"build_date":"2025-06-06T15:39:25Z","graph_version":"2","version":"9.3.0"}
+2025-10-19 12:14:19 INFO [o.h.o.r.g.e.c.CorePreparationHandler    ] - Creating CH preparations, totalMB:1024, usedMB:302
+2025-10-19 12:14:19 INFO [o.h.o.r.g.e.c.CoreLMPreparationHandler  ] - Creating LM preparations, totalMB:1024, usedMB:302
+2025-10-19 12:14:20 INFO [o.h.o.r.g.e.c.CoreLMPreparationHandler  ] - Finished LM preparation, totalMB:1024, usedMB:328
+2025-10-19 12:14:20 INFO [o.h.o.r.g.e.ORSGraphHopper              ] - version v4.9.8|2025-04-28T13:05:33Z (7,20,5,4,5,7)
+2025-10-19 12:14:20 INFO [o.h.o.r.g.e.ORSGraphHopper              ] - graph CH|car_ors|RAM_STORE|3D|turn_cost|7,20,5,4,5, details:edges:20 824(1MB), nodes:17 462(1MB), name:(2MB), geo:137 672(1MB), bounds:7.7084693,9.1039669,49.3325699,49.5168325,89.0,582.0, shortcuts:12 416 (1MB), nodesCH:17 462 (1MB), shortcuts:16 195 (1MB), nodesCH:17 462 (1MB), shortcuts:17 072 (1MB), nodesCH:17 462 (1MB)
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfile                  ] - [1] Profile: 'driving-car', encoder: 'driving-car', location: 'graphs/driving-car'.
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfile                  ] - [1] Edges: 20824 - Nodes: 17462.
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfile                  ] - [1] Total time: 1.21s.
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfile                  ] - [1] Finished at: 2025-10-19 12:14:20.
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - Total time: 1.374s.
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - ========================================================================
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - ====> Recycling garbage...
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - Before: Total - 1024 MB, Free - 694.36 MB, Max: 2 GB, Used - 329.64 MB
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - After: Total - 1024 MB, Free - 938.29 MB, Max: 2 GB, Used - 85.71 MB
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - ========================================================================
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - ====> Memory usage by profiles:
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - [1] 25.03 MB (29.0%)
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - Total: 25.03 MB (29.0%)
+2025-10-19 12:14:20 INFO [o.h.o.r.RoutingProfileManager           ] - ========================================================================
+2025-10-19 14:33:27 INFO [o.h.o.a.s.l.ORSInitContextListener      ] - Shutting down openrouteservice {"build_date":"2025-06-06T15:39:25Z","graph_version":"2","graph_date":"2025-09-28T12:30:50Z","osm_date":"2024-09-08T20:21:00Z","version":"9.3.0"} and releasing resources.

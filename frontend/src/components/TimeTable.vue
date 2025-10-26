@@ -92,8 +92,8 @@ export default {
     },
     formatTime(isoString) {
       const date = new Date(isoString);
-      const h = date.getUTCHours().toString().padStart(2, '0');
-      const m = date.getUTCMinutes().toString().padStart(2, '0');
+      const h = date.getHours().toString().padStart(2, '0');
+      const m = date.getMinutes().toString().padStart(2, '0');
       return `${h}:${m}`;
     },
     parseTimeToMinutes(timeStr) {
@@ -101,16 +101,14 @@ export default {
       return hour * 60 + minute;
     },
     computeEventStyle(event) {
-      const pixelsPerMinute = 50 / 60;
+      const pixelsPerMinute = (50 + 1) / 60;
 
       const top = event.startMin * pixelsPerMinute;
       const height = (event.endMin - event.startMin) * pixelsPerMinute;
 
-      const fullWidth = 600;
+      const columnWidth = 145;
       const columnGap = 5;
 
-      const totalGaps = (event.totalColumns - 1) * columnGap;
-      const columnWidth = (fullWidth - totalGaps) / event.totalColumns;
       const left = (columnWidth + columnGap) * event.column;
 
       return {
