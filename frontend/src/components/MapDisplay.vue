@@ -2,10 +2,8 @@
   <div class="map-container">
     <div id="map" ref="mapElement"></div>
 
-    <div class="location-info" v-if="markerLocations.length > 0">
-      <div v-for="(loc, i) in markerLocations" :key="i">
-        {{ markerLabels[i] }}: {{ loc.lat.toFixed(5) }}, {{ loc.lng.toFixed(5) }}
-      </div>
+    <div class="location-info" v-if="markerLocation">
+        Selected coordinate: {{ markerLocation.lat.toFixed(5) }}, {{ markerLocation.lng.toFixed(5) }}
     </div>
 
     <button class="map-btn back-btn" @click="toprevious">Back</button>
@@ -16,16 +14,17 @@
 
 <script>
 import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
+import L, { latLng } from 'leaflet'
+import 'leaflet-control-geocoder'
+import 'leaflet-control-geocoder/dist/Control.Geocoder.css'
 
 export default {
   props: ['formData'],
   data() {
     return {
       map: null,
-      markers: [],
-      markerLocations: [],
-      markerLabels: ['Pick-up', 'Drop-off', 'Return']
+      marker: null,
+      markerLocation: null,
     }
   },
   mounted() {
@@ -39,68 +38,43 @@ export default {
       this.map.invalidateSize()
     }, 100)
 
-    this.markerLocations = [...(this.formData.markerLocations || [])];
-    this.markerLocations.forEach((loc, index) => {
-      const marker = L.marker([loc.lat, loc.lng], {
-        draggable: true
-      }).addTo(this.map)
-      const label = this.markerLabels[index] || `Marker ${index + 1}`;
-      marker.bindPopup(label);
+    L.Control.geocoder({defaultMarkGeocode:false})
+    .on('markgeocode', (e) =>{
+      const center = e.geocode.center
+      this.map.setView(center,17)
+      this.setMarker({ lat: center.lat, lng: center.lng })
+    })
+    .addTo(this.map)
 
-      marker.on('dragend', (event) => {
-        const position = event.target.getLatLng();
-        this.markerLocations[index] = {
-          lat: position.lat,
-          lng: position.lng
-        };
-      });
-
-      this.markers.push(marker)
-    });
+    if (this.formData.markerLocation) {
+      this.setMarker(this.formData.markerLocation)
+      this.map.setView(this.formData.markerLocation, 15)
+    }
 
     this.map.on('click', (e) => {
-      if (this.markerLocations.length >= 3) return
-
-      const { lat, lng } = e.latlng
-      this.markerLocations.push({ lat, lng })
-
-      const label = this.markerLabels[this.markerLocations.length - 1]
-
-      const marker = L.marker([lat, lng], {
-        draggable: true
-      }).addTo(this.map)
-
-      marker.bindPopup(label)
-
-      marker.on('dragend', (event) => {
-        const position = event.target.getLatLng()
-        const index = this.markers.indexOf(event.target)
-        if (index !== -1) {
-          this.markerLocations[index] = {
-            lat: position.lat,
-            lng: position.lng
-          }
-        }
-      })
-
-      this.markers.push(marker)
+      this.setMarker(e.latlng)
     })
   },
   methods: {
+    setMarker(latlng) {
+      if (this.marker) {
+        this.marker.setLatLng(latLng)
+      } else {
+        this.marker = L.marker([latlng.lat, latlng.lng], {draggable:true}).addTo(this.map)
+        this.marker.on('dragend', (event) => {
+          this.markerLocation = { lat: latlng.lat, lng: latlng.lng }
+      })
+    }
+    this.markerLocation = { lat: latlng.lat, lng: latlng.lng }
+    },
     proceed() {
-      const locations = [...this.markerLocations]
-      if (locations.length < 2) {
-        alert('Please select at least 2 locations: From and To.')
+      if (!this.markerLocation) {
+        alert('Please select a location to add.')
         return
       }
-      if (locations.length === 2) {
-        locations.push(locations[0])
-      }
-      this.$emit('updateFormData', { markerLocations: [...this.markerLocations] })
       this.$emit('next')
     },
     toprevious() {
-      this.$emit('updateFormData', { markerLocations: [...this.markerLocations] })
       this.$emit('back')
     }
   }

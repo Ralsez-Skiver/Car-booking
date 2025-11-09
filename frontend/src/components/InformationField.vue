@@ -5,12 +5,34 @@
 
       <div class="form-group">
         <input
+          type="text"
+          v-model="formData.title"
+          required
+          class="form-input"
+        />
+        <label class="form-label">Title</label>
+      </div>
+
+      <div class="form-group">
+        <input
           type="datetime-local"
           v-model="formData.pick_up_time_dept"
           required
           class="form-input"
         />
         <label class="form-label">Pick-up Time (Departure)</label>
+      </div>
+
+      <div class="form-group">
+        <select
+          v-model="formData.pick_up_location_dept" @change="handleLocationChange('dept')"
+          required
+          class="form-input"
+        >
+        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+        <option value="new">+ Add new location</option>
+      </select>
+        <label class="form-label">Pick-up Location (Departure)</label>
       </div>
 
       <div class="form-group">
@@ -23,24 +45,36 @@
       </div>
 
       <div class="form-group">
+        <select
+          v-model="formData.pick_up_location_return" @change="handleLocationChange('return')"
+          required
+          class="form-input"
+        >
+        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+        <option value="new">+ Add new location</option>
+      </select>
+        <label class="form-label">Pick-up Location (Return)</label>
+      </div>
+
+      <div class="form-group">
         <input
           type="number"
           v-model.number="formData.passenger"
           min="1"
           required
           class="form-input"
+          placeholder="Add passengers for extra luggage"
         />
         <label class="form-label">Passenger Count</label>
       </div>
 
       <div class="form-group">
         <input
-          type="number"
+          type="checkbox"
           v-model.number="formData.luggage"
-          min="0"
           class="form-input"
         />
-        <label class="form-label">Luggage Count</label>
+        <label class="form-label">Luggage</label>
       </div>
       <div class="button-group">
         <button type="button" class="btn secondary" @click="$emit('back')">Back</button>
@@ -51,6 +85,8 @@
 </template>
 
 <script>
+import { onMounted, ref } from 'vue';
+
 export default {
   props: ['formData'],
   methods: {
@@ -58,8 +94,64 @@ export default {
       this.$emit('updateFormData', { ...this.formData });
       this.$emit('next');
     },
+    async loadLocation() {
+      try { const res = await fetch("http://localhost:3001/locations", {credentials: "include"});
+        if (!res.ok) throw new Error("Failed to fetch locations");
+        this.locations = await res.json();
+      } catch (err) {
+        console.error("Error getting locations data:", err);
+      }
+    },
+    handleLocationChange(type) {
+      const selected = 
+        type == "dept"
+          ? this.formData.pick_up_location_dept
+          : this.formData.pick_up_location_return;
+
+      if (selected == "new") {
+        this.activeLocation = type;
+        this.showMap = true;
+      }
+    },
+    async recordNewLocation(newLoc) {
+      try {
+        const res = await fetch("https://localhost:3001/locations", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: Json.stringify(newLoc),
+          credentials: "include"
+        });
+        if (!res.ok) throw new Error("Faled to save new location to database");
+        const saved = await res.json();
+
+        this.location.push(saved);
+        if (this.activeLocation == "dept") {
+          this.formData.pick_up_location_dept = saved.id;
+        } else {
+          this.formData.pick_up_location_return = saved.id;
+        }
+        this.showMap = false;
+      } catch (err) {
+        console.error("Error saving new location to database:", err)
+      }
+    },
+    closeMap() {
+      this.showMap = false;
+    },
+  
+  data() {
+    return{
+      locations: [],
+      showMap: false,
+      activeLocation: null, // can be dept or return
+    };
   },
-};
+  mounted() {
+    this.loadLocation();
+  }
+},
+
+}
 </script>
 
 <style scoped>
@@ -111,17 +203,6 @@ export default {
 
 .form-label {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  color: #777;
-  font-size: 0.9rem;
-  pointer-events: none;
-  transition: all 0.2s ease-in-out;
-}
-
-.form-input:focus + .form-label,
-.form-input:not(:placeholder-shown) + .form-label,
-.form-input:valid + .form-label {
   top: -10px;
   left: 8px;
   background: white;

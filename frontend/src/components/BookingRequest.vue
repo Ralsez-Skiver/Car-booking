@@ -1,11 +1,12 @@
 <template>
   <div class="booking-request">
-    <component
+    <component class="booking-request-pages"
       :is="currentComponent"
       :formData="formData"
       @next="handleNext"
       @back="handleBack"
       @updateFormData="updateFormData"
+      @returnAfterFinish="toPastData"
     />
   </div>
 </template>
@@ -59,6 +60,9 @@ export default {
         ...this.formData,
         ...updatedFields
       }
+    },
+    toPastData() {
+      this.step = 0;
     }
   }
 }
@@ -71,5 +75,10 @@ export default {
   justify-content: center;
   align-items: center;
   background: #faf9f6;
+  height: 100%;
+}
+
+.booking-request-pages {
+  height: 100%;
 }
 </style>
