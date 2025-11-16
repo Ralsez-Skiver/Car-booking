@@ -1,6 +1,11 @@
 <template>
   <div class="informationfield-container">
-    <form class="form-card" @submit.prevent="submitForm">
+
+    <div v-if="showMap" style="width: 100%; height: 92vh;">
+      <MapDisplay ref="MapDisplay" @next="recordNewLocation" @back="closeMap" />
+    </div>
+
+    <form v-else class="form-card" @submit.prevent="submitForm">
       <h2 class="form-title">Booking information</h2>
 
       <div class="form-group">
@@ -29,7 +34,7 @@
           required
           class="form-input"
         >
-        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.location_name }}</option>
         <option value="new">+ Add new location</option>
       </select>
         <label class="form-label">Pick-up Location (Departure)</label>
@@ -50,7 +55,7 @@
           required
           class="form-input"
         >
-        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+        <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.location_name }}</option>
         <option value="new">+ Add new location</option>
       </select>
         <label class="form-label">Pick-up Location (Return)</label>
@@ -86,9 +91,19 @@
 
 <script>
 import { onMounted, ref } from 'vue';
+import MapDisplay from './MapDisplay.vue';
 
 export default {
+  // emits: ['next', 'back', 'updateFormData', 'returnAfterFinish'],
+  components: { MapDisplay },
   props: ['formData'],
+    data() {
+    return{
+      locations: [],
+      showMap: false,
+      activeLocation: null, // can be dept or return
+    };
+  },
   methods: {
     submitForm() {
       this.$emit('updateFormData', { ...this.formData });
@@ -111,46 +126,43 @@ export default {
       if (selected == "new") {
         this.activeLocation = type;
         this.showMap = true;
+        if (type == "dept") {
+          this.formData.pick_up_location_dept = "";
+        } else {
+          this.formData.pick_up_location_return = "";
+        }
       }
-    },
-    async recordNewLocation(newLoc) {
-      try {
-        const res = await fetch("https://localhost:3001/locations", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: Json.stringify(newLoc),
-          credentials: "include"
-        });
-        if (!res.ok) throw new Error("Faled to save new location to database");
-        const saved = await res.json();
 
-        this.location.push(saved);
+    },
+    async recordNewLocation() {
+      // try {
+      //   const res = await fetch("http://localhost:3001/locations", {
+      //     method: "POST",
+      //     headers: {"Content-Type": "application/json"},
+      //     body: JSON.stringify(newLoc),
+      //     credentials: "include"
+      //   });
+      //   if (!res.ok) throw new Error("Faled to save new location to database");
+      //   const saved = await res.json();
+
+        this.locations.push(saved);
         if (this.activeLocation == "dept") {
           this.formData.pick_up_location_dept = saved.id;
         } else {
           this.formData.pick_up_location_return = saved.id;
         }
         this.showMap = false;
-      } catch (err) {
-        console.error("Error saving new location to database:", err)
-      }
+      // } catch (err) {
+      //   console.error("Error saving new location to database:", err)
+      // }
     },
     closeMap() {
-      this.showMap = false;
+    this.showMap = false;
     },
-  
-  data() {
-    return{
-      locations: [],
-      showMap: false,
-      activeLocation: null, // can be dept or return
-    };
   },
-  mounted() {
+    mounted() {
     this.loadLocation();
   }
-},
-
 }
 </script>
 
@@ -160,6 +172,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 92vh;
+  width: 100%;
   background: #f5f8fa;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }

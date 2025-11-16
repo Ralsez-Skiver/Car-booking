@@ -218,6 +218,54 @@ app.get('/distancematrix', async (req, res)=> {
   }
 })
 
+app.get('/locations', async (req,res) => {
+  try {
+    const username = req.session.user?.username
+    if (!username) {
+      return res.status(401).json({ error: 'Not authenticated'})
+    }
+    const [rows] = await connection_pool.query(
+      'SELECT location_name, location_lat, location_lng FROM locations'
+    );
+    res.json(rows)
+
+  } catch (error) {
+    console.error(error);
+  }
+})
+
+app.post('/addnewlocation', async (req,res) => {
+  try {
+    const username = req.session.user?.username
+    if (!username) {
+      return res.status(401).json({ error: 'Not authenticated'});
+    }
+    
+    const {
+      location_name,
+      location_lat,
+      location_lng
+    } = req.body;
+
+    const sql = `
+    INSERT INTO locations
+    (location_name,location_lat,location_lng)
+    VALUES (?,?,?)
+    `
+
+    await connection_pool.query(sql, [
+      location_name,
+      location_lat,
+      location_lng
+    ]);
+
+    res.status(201).json({ message: 'Added new location'});
+  } catch (error) {
+    console.error('Error adding new location:', error);
+    res.status(500).json({ error: 'Error saving new location'})
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`car booking backend running on http://localhost:${PORT}`);
 });

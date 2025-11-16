@@ -3,10 +3,16 @@
     <div id="map" ref="mapElement"></div>
 
     <div class="location-info" v-if="markerLocation">
-        Selected coordinate: {{ markerLocation.lat.toFixed(5) }}, {{ markerLocation.lng.toFixed(5) }}
+      <label>
+        Location name:
+        <input type="text" v-model="placeName" placeholder="Enter place name"></input>
+      </label>
+      <div>
+                Selected coordinate: {{ markerLocation.lat.toFixed(5) }}, {{ markerLocation.lng.toFixed(5) }}
+      </div>
     </div>
 
-    <button class="map-btn back-btn" @click="toprevious">Back</button>
+    <button class="map-btn back-btn" @click="cancel">Back</button>
     <button class="map-btn next-btn" @click="proceed">Next</button>
   </div>
 </template>
@@ -19,12 +25,12 @@ import 'leaflet-control-geocoder'
 import 'leaflet-control-geocoder/dist/Control.Geocoder.css'
 
 export default {
-  props: ['formData'],
   data() {
     return {
       map: null,
       marker: null,
       markerLocation: null,
+      placeName: ''
     }
   },
   mounted() {
@@ -34,9 +40,11 @@ export default {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map)
 
-    setTimeout(() => {
-      this.map.invalidateSize()
-    }, 100)
+    this.$nextTick(() =>{
+      setTimeout(() => {
+        this.map.invalidateSize()
+      }, 300)
+    })
 
     L.Control.geocoder({defaultMarkGeocode:false})
     .on('markgeocode', (e) =>{
@@ -46,23 +54,17 @@ export default {
     })
     .addTo(this.map)
 
-    if (this.formData.markerLocation) {
-      this.setMarker(this.formData.markerLocation)
-      this.map.setView(this.formData.markerLocation, 15)
-    }
-
-    this.map.on('click', (e) => {
-      this.setMarker(e.latlng)
-    })
+    this.map.on('click', (e) => { this.setMarker(e.latlng) })
   },
   methods: {
     setMarker(latlng) {
       if (this.marker) {
-        this.marker.setLatLng(latLng)
+        this.marker.setLatLng(latlng)
       } else {
         this.marker = L.marker([latlng.lat, latlng.lng], {draggable:true}).addTo(this.map)
         this.marker.on('dragend', (event) => {
-          this.markerLocation = { lat: latlng.lat, lng: latlng.lng }
+          const newLatLng = event.target.getLatLng()
+          this.markerLocation = { lat: newLatLng.lat, lng: newLatLng.lng }
       })
     }
     this.markerLocation = { lat: latlng.lat, lng: latlng.lng }
@@ -72,22 +74,37 @@ export default {
         alert('Please select a location to add.')
         return
       }
+      const payload = {
+        location_name: this.placeName,
+        location_lat: this.markerLocation.lat,
+        location_lng: this.markerLocation.lng
+      };
+      fetch('http://localhost:3001/addnewlocation', {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .catch(err => {
+        console.error(err)
+      })
       this.$emit('next')
     },
-    toprevious() {
+    cancel() {
       this.$emit('back')
     }
   }
 }
 </script>
 
-
-
 <style scoped>
 .map-container {
   position: relative;
   width: 100%;
-  height: calc(100vh - 56px);
+  height: 100%;
   overflow: hidden;
   }
 
