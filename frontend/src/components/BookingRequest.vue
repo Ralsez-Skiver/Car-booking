@@ -29,12 +29,17 @@ export default {
   data() {
     return {
       step: 0,
-      steps: ['RequesteePastData', 'InformationField', 'MapDisplay','ConfirmData','BookingComplete'],
+      steps: ['RequesteePastData', 'InformationField','ConfirmData','BookingComplete'],
       formData: {
+        title: '',
         pick_up_time_dept: '',
         pick_up_time_return: '',
+        pick_up_location_dept_id: '',
+        pick_up_location_dept_name: '',
+        pick_up_location_return_id: '',
+        pick_up_location_return_name: '',
         passenger: null,
-        luggage: null,
+        luggage: "No",
         markerLocations: [],
       }
     }

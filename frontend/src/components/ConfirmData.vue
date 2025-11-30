@@ -4,29 +4,19 @@
       <h2 class="form-title">Confirm Booking Details</h2>
 
       <div class="summary-group">
+        <strong>Title: </strong>{{ formData.title }}
         <p>
-          <strong>Pick-up Time (Departure):</strong>
-          {{ formatDate(formData.pick_up_time_dept) }}
+          <strong>Pick-up (Departure)</strong> <br>
+          <strong>Time: </strong>{{ formatDate(formData.pick_up_time_dept) }}<br>
+          <strong>Location: </strong> {{ formData.pick_up_location_dept_name }}
         </p>
         <p v-if="formData.pick_up_time_return">
-          <strong>Pick-up Time (Return):</strong>
-          {{ formatDate(formData.pick_up_time_return) }}
+          <strong>Pick-up (Return)</strong> <br>
+          <strong>Time: </strong>{{ formatDate(formData.pick_up_time_return) }}<br>
+          <strong>Location: </strong> {{ formData.pick_up_location_return_name }}
         </p>
-        <p><strong>Passenger Count:</strong> {{ formData.passenger }}</p>
-        <p><strong>Luggage Count:</strong> {{ formData.luggage }}</p>
-
-        <div v-if="formData.markerLocations.length">
-          <strong>Locations Selected:</strong>
-          <ul class="location-list">
-            <li
-              v-for="(location, index) in formData.markerLocations"
-              :key="index"
-            >
-              {{ markerLabels[index] || `Location ${index + 1}` }}:
-              {{ formatLocation(location) }}
-            </li>
-          </ul>
-        </div>
+        <strong>Passenger Count:</strong> {{ formData.passenger }} <br>
+        <strong>Luggage Count:</strong> {{ formData.luggage }}
       </div>
 
       <div class="button-group">
@@ -40,11 +30,11 @@
 <script>
 export default {
   props: ['formData'],
-  data() {
-    return {
-      markerLabels: ['Pick-up', 'Drop-off', 'Return']
-    };
-  },
+  // data() {
+  //   return {
+  //     markerLabels: ['Pick-up', 'Drop-off', 'Return']
+  //   };
+  // },
   methods: {
     formatDate(datetimeStr) {
       if (!datetimeStr) return '';

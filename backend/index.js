@@ -225,7 +225,7 @@ app.get('/locations', async (req,res) => {
       return res.status(401).json({ error: 'Not authenticated'})
     }
     const [rows] = await connection_pool.query(
-      'SELECT location_name, location_lat, location_lng FROM locations'
+      'SELECT * FROM locations'
     );
     res.json(rows)
 
