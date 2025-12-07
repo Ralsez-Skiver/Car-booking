@@ -19,14 +19,14 @@ export default {
 </script>
 
 <style>
-.ReqesteeView {
+/* .RequeseeView {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   background: #faf9f6;
   overflow: hidden;
-}
+} */
 
 .resize-for-account-bar {
   flex-grow: 1;
