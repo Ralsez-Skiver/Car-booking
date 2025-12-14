@@ -13,7 +13,7 @@
     </div>
 
     <button class="map-btn back-btn" @click="cancel">Back</button>
-    <button class="map-btn next-btn" @click="proceed">Next</button>
+    <button class="map-btn next-btn" @click="proceed">Confirm</button>
   </div>
 </template>
 
@@ -87,11 +87,30 @@ export default {
         },
         body: JSON.stringify(payload)
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Server responded with status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.newLocationId) {
+          const savedLocation = {
+            id: data.newLocationID,
+            name: this.placeName,
+            location_lat: this.markerLocation.lat,
+            location_lng: this.markerLocation.lng
+          };
+          this.$emit('next', savedLocation);
+        } else {
+          console.error('Server response error: Missing newLocationId.', data);
+          alert('Failed to get the new location ID from the server.');
+        }
+      })
       .catch(err => {
         console.error(err)
+        alert('Error saving location: ' + err.message);
       })
-      this.$emit('next')
     },
     cancel() {
       this.$emit('back')

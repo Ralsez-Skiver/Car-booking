@@ -271,6 +271,7 @@ app.get('/locations', async (req,res) => {
 })
 
 app.post('/addnewlocation', async (req,res) => {
+  let connection;
   try {
     const username = req.session.user?.username
     if (!username) {
@@ -283,22 +284,83 @@ app.post('/addnewlocation', async (req,res) => {
       location_lng
     } = req.body;
 
-    const sql = `
+    connection = await connection_pool.getConnection();
+    await connection.beginTransaction();
+
+    const [existingLocations] = await connection.query(
+      `SELECT location_id, location_lat, location_lng FROM locations`
+    )
+
+    const sqlNewLocation = `
     INSERT INTO locations
     (location_name,location_lat,location_lng)
     VALUES (?,?,?)
     `
 
-    await connection_pool.query(sql, [
+    const [newLocationResult] = await connection.query(sqlNewLocation, [
       location_name,
       location_lat,
       location_lng
     ]);
+    const newLocationId = newLocationResult.insertId
 
-    res.status(201).json({ message: 'Added new location'});
+    const newLocCoords = [location_lng, location_lat];
+    const existingLocCoords = existingLocations.map(loc => [loc.location_lng, loc.location_lat]);
+    const allCoords = [newLocCoords, ...existingLocCoords];
+
+    const ors_url = "http://localhost:8080/ors/v2/matrix/driving-car";
+    const ors_payload = {
+      locations: allCoords,
+      metrics: ['duration'],
+      sources: [0],
+      destinations: Array.from({length: allCoords.length}, (_, i) => i)
+      };
+    const ors_response = await fetch(ors_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ors_payload)
+      });
+
+      if (!ors_response.ok) {
+        const error = await ors_response.text();
+        throw new Error(`ORS API error: ${ors_response.status} - ${error}`);
+      }
+        
+    const durations = (await ors_response.json()).durations[0];
+
+    const today = new Date();
+    const sqlDistanceMatrix = `
+    INSERT INTO distance_matrix
+    (source_location, destination_location, duration_sec, last_updated)
+    VALUES (?,?,?,?)
+    on DUPLICATE KEY UPDATE duration_sec = VALUES(duration_sec), last_updated = VALUES(last_updated)
+    `
+
+    for (let j = 0; j < allCoords.length; j++) {
+      const destId = j === 0 ? newLocationId : existingLocations[j - 1].location_id;
+      const duration = durations[j];
+
+      await connection.query(sqlDistanceMatrix, [
+        newLocationId,
+        destId,
+        duration, 
+        today
+      ]);
+    }
+
+    await connection.commit();
+
+    res.status(201).json({ message: 'Added new location', newLocationId: newLocationId});
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('Error adding new location:', error);
     res.status(500).json({ error: 'Error saving new location'})
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 })
 

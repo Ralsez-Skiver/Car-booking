@@ -113,14 +113,23 @@ export default {
         this.segmentData.destination_name = loc.location_name
       }
     },
-    async updatedAddLocation() {
-        this.locations.push(saved);
+    async updatedAddLocation(saved) {
+        this.locations.push({
+          location_id: saved.id,
+          location_name: saved.name,
+          location_lat: saved.location_lat,
+          location_lng: saved.location_lng
+        });
+        const newLocationId = Number(saved.id);
         if (this.activeLocation == "dept") {
-          this.segmentData.pickup_dept_location_id = saved.id;
+          this.segmentData.pickup_dept_location_id = newLocationId;
+          this.segmentData.pickup_dept_location_name = saved.name;
         } else {
-          this.segmentData.destination_id = saved.id;
+          this.segmentData.destination_id = newLocationId;
+          this.segmentData.destination_name = saved.name;
         }
         this.showMap = false;
+        this.activeLocation = null;
     },
     closeMap() {
     this.showMap = false;
