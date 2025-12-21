@@ -4,8 +4,11 @@
     <section class="admin-pages">
       <AccountBar/>
       <div class="adminView-container">
-        <AdminCalendar @dateSelected="fetchBookingData"/>
-        <TimeTable :schedule="bookingData"/>
+        <div>
+          <AdminCalendar @dateSelected="fetchBookingData"/>
+          teasnflashefashenflasfj
+        </div>
+        <TimeTable :schedule="bookingData" :carData="carData"/>
       </div>
     </section>
 
@@ -28,7 +31,8 @@ export default {
   },
   data() {
     return {
-      bookingData: []
+      bookingData: [],
+      carData: []
     };
   },
   methods: {
@@ -37,12 +41,26 @@ export default {
         const response = await fetch(`http://localhost:3001/schedule?date=${date}`, {credentials: 'include'})
         const data = await response.json();
         this.bookingData = data;
-        console.log(data)
+        console.log("booking_data_dated",data)
       } catch (error) {
-          console.error("Error fetching:", error)
+          console.error("Error fetching booking data:", error)
           this.bookingData = [];
       }
+    },
+    async fetchCarData() {
+      try {
+        const response = await fetch('http://localhost:3001/cardata', {credentials: 'include'})
+        const data = await response.json();
+        this.carData = data;
+        console.log("cardata",data)
+      } catch (error) {
+        console.error("Error fetching car data:", error)
+        this.carData = [];
+      }
     }
+  },
+  mounted() {
+    this.fetchCarData();
   }
 }
 </script>

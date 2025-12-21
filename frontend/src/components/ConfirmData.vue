@@ -6,6 +6,7 @@
       <div class="summary-group">
         
         <strong>Title: </strong>{{ formData.title }}<br>
+        <strong>Date: </strong>{{ formData.date }} <br>
         <strong>Passenger: </strong>{{ formData.passenger }}<br>
         <strong>Luggage: </strong>{{ formData.luggage ? 'Yes' : 'No' }}
         <hr>
@@ -20,7 +21,7 @@
             >
                 <h4>Destination {{ segment.segment_order }}</h4> 
                 <p>
-                    <strong>Pick up time: </strong>{{ formatDate(segment.pickup_dept_time) }}<br>
+                    <strong>Pick up time: </strong>{{ segment.pickup_dept_time }}<br>
                     <strong>Pick up Location: </strong>{{ segment.pickup_dept_location_name }}<br>
                     <strong>Destination: </strong>{{ segment.destination_name }}
                 </p>
@@ -53,18 +54,18 @@
 export default {
   props: ['formData'],
   methods: {
-    formatDate(datetimeStr) {
-      if (!datetimeStr) return '';
-      const date = new Date(datetimeStr);
-      return date.toLocaleString('en-GB', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-    },
+    // formatDate(datetimeStr) {
+    //   if (!datetimeStr) return '';
+    //   const date = new Date(datetimeStr);
+    //   return date.toLocaleString('en-GB', {
+    //     year: 'numeric',
+    //     month: 'short',
+    //     day: '2-digit',
+    //     hour: '2-digit',
+    //     minute: '2-digit',
+    //     hour12: false
+    //   });
+    // },
     formatLocation(location) {
       if (typeof location === 'string') return location;
       if (location.address) return location.address;

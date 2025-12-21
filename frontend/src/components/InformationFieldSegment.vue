@@ -6,11 +6,11 @@
     </div>
 
     <form v-else class="form-card" @submit.prevent="submitForm">
-      <h2 class="form-title">{{ segmentData.segment_order }} Segment information</h2>
+      <h2 class="form-title">{{ ordinal(segmentData.segment_order) }} Destination information</h2>
 
       <div class="form-group">
         <input
-          type="datetime-local"
+          type="time"
           v-model="segmentData.pickup_dept_time"
           required
           class="form-input"
@@ -77,6 +77,11 @@ export default {
     };
   },
   methods: {
+    ordinal(n){
+      const s = ["th","st","nd","rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    },
     submitForm() {
       this.$emit('next');
     },

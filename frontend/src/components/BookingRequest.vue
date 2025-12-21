@@ -98,6 +98,27 @@ export default {
       }
     },
     toPastData() {
+      this.formData = {
+        title: '',
+        passenger: null,
+        luggage: false,
+        date: '',
+        return_pickup_time: '',
+        return_pickup_location_id: '',
+        return_pickup_location_name: '',
+        return_destination_id: '',
+        return_destination_name: '',
+        segments: [
+          {
+            segment_order: 1,
+            pickup_dept_time: '',
+            pickup_dept_location_id: '',
+            pickup_dept_location_name: '',
+            destination_id: '',
+            destination_name: '',
+          }
+        ]
+      };
       this.step = 0;
     },
     addSegment() {

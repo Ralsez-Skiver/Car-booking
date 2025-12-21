@@ -23,6 +23,7 @@ import 'leaflet/dist/leaflet.css'
 import L, { latLng } from 'leaflet'
 import 'leaflet-control-geocoder'
 import 'leaflet-control-geocoder/dist/Control.Geocoder.css'
+import { geocoder } from 'leaflet-control-geocoder';
 
 export default {
   data() {
@@ -46,7 +47,14 @@ export default {
       }, 300)
     })
 
-    L.Control.geocoder({defaultMarkGeocode:false})
+    L.Control.geocoder({
+      defaultMarkGeocode: false,
+      geocoder: L.Control.Geocoder.nominatim({ // can be change to other service "Google" "Mapbox"
+        countrycodes: 'th',
+        viewbox: [99.8, 5.5, 105.7, 20.5],
+        bounded: 1
+      })
+    })
     .on('markgeocode', (e) =>{
       const center = e.geocode.center
       this.map.setView(center,17)
@@ -96,7 +104,7 @@ export default {
       .then(data => {
         if (data && data.newLocationId) {
           const savedLocation = {
-            id: data.newLocationID,
+            id: data.newLocationId,
             name: this.placeName,
             location_lat: this.markerLocation.lat,
             location_lng: this.markerLocation.lng

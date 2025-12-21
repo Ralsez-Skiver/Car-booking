@@ -11,7 +11,7 @@
 
       <div class="form-group">
         <input
-          type="datetime-local"
+          type="time"
           v-model="formData.return_pickup_time"
           class="form-input"
         />

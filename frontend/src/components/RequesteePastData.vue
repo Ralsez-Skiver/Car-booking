@@ -29,7 +29,8 @@
           @click="ExpandDataDetail(index)"
         >
           <span class="bar-label">
-            {{ day.title }} ({{ day.details.pickupDate }})
+            {{ new Date(day.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) }} :
+            {{ day.title }} 
           </span>
         </div>
 
@@ -41,8 +42,7 @@
           }">
           
           <div class="top-details-group">
-            <strong>Title:</strong> {{ day.title }} <br>
-            <strong>Requested:</strong> {{ day.date }} <br>
+            <strong>Requested:</strong> {{ new Date(day.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) }} <br>
             <strong>Passengers:</strong> {{ day.details.passenger }} <br>
             <strong>Luggage:</strong> {{ day.details.luggage }}
           </div>
@@ -55,11 +55,11 @@
                 :key="segment.segment_order"
                 class="segment-summary-card"
             >
-                <h5>Segment {{ segment.segment_order }}</h5>
+                <h5>{{ ordinal(segment.segment_order) }} Destination</h5>
                 <p>
-                    <strong>Time:</strong> {{ formatDateTime(segment.pickup_time) }} <br>
-                    <strong>From:</strong> {{ segment.pickup_location }} <br>
-                    <strong>To:</strong> {{ segment.destination }}
+                    <strong>Time:</strong> {{ segment.pickup_time.slice(0,5) }} <br>
+                    <strong>From:</strong> {{ segment.pickup_location_name }} <br>
+                    <strong>To:</strong> {{ segment.destination_name }}
                 </p>
             </div>
           </div>
@@ -67,7 +67,7 @@
           <div v-if="day.details.returnTime !== 'N/A'" class="return-trip-card">
               <h4 class="segment-group-title">Return Trip</h4>
               <p>
-                  <strong>Time:</strong> {{ day.details.returnTime }} <br>
+                  <strong>Time:</strong> {{ day.details.returnTime.slice(0,5) }} <br>
                   <strong>From:</strong> {{ day.details.returnLocation }} <br>
                   <strong>To:</strong> {{ day.details.returnDestination }}
               </p>
@@ -89,15 +89,20 @@ const expandedIndex = ref(null)
 const dataFormatted = ref([])
 const BoolExpandPastData = ref(false)
 
-// Utility function to format date/time consistently
-const formatDateTime = (datetimeStr) => {
-    if (!datetimeStr) return 'N/A';
-    const date = new Date(datetimeStr);
-    // Formats date and time: e.g., 07/12/2025, 10:30
-    return date.toLocaleString('en-GB', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', hour12: false
-    });
+// const formatDateTime = (datetimeStr) => {
+//     if (!datetimeStr) return 'N/A';
+//     const date = new Date(datetimeStr);
+//     // Formats date and time: e.g., 07/Dec/2025, 10:30
+//     return date.toLocaleString('en-GB', {
+//         day: '2-digit', month: 'short', year: 'numeric', 
+//         hour: '2-digit', minute: '2-digit', hour12: false
+//     });
+// }
+
+const ordinal = (n) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 onMounted(async () => {
@@ -123,10 +128,7 @@ onMounted(async () => {
                 booking_id: item.booking_id,
                 title: item.title,
                 
-                // Main display date: The date of the first trip segment
-                date: item.segments.length > 0 
-                      ? new Date(item.segments[0].pickup_time).toLocaleDateString()
-                      : 'No Date', 
+                date: item.booking_date, 
 
                 details: {
                     passenger: item.passenger,
@@ -136,9 +138,9 @@ onMounted(async () => {
                     segments: item.segments, // Pass the full array for the nested loop in the template
                     
                     // Display Time for the bar label and pickup details
-                    pickupDate: item.segments.length > 0 ? formatDateTime(item.segments[0].pickup_time) : 'No Segments',
+                    pickupDate: item.segments.length > 0 ? item.segments[0].pickup_time : 'No Segments',
                     
-                    returnTime: item.return_pickup_time ? formatDateTime(item.return_pickup_time) : 'N/A',
+                    returnTime: item.return_pickup_time ? item.return_pickup_time : 'N/A',
                     returnLocation: item.return_pickup_location_name || 'N/A',
                     returnDestination: item.return_destination_name || 'N/A'
                 }
@@ -164,7 +166,7 @@ const ExpandList = () => {
 .bar-container {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
     width: 50%;
     max-width: 600px;
     margin: auto;

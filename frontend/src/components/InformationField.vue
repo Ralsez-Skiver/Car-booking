@@ -16,6 +16,16 @@
 
       <div class="form-group">
         <input
+          type="date"
+          v-model="formData.date"
+          required
+          class="form-input"
+        />
+        <label class="form-label">Pick-up Time</label>
+      </div>
+
+      <div class="form-group">
+        <input
           type="number"
           v-model.number="formData.passenger"
           min="1"
@@ -131,5 +141,36 @@ export default {
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.3s ease;
+}
+
+.form-group input[type="checkbox"] {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  background: white;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  margin-top: 13px; 
+}
+
+.form-group input[type="checkbox"]:checked {
+  background-color: #007aff;
+  border-color: #007aff;
+}
+
+.form-group input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 7px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 </style>

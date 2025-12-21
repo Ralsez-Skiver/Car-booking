@@ -61,8 +61,13 @@ app.get('/requestee_past_data', async (req, res) => {
     }
 
     const [bookings] = await connection_pool.query(
-      'SELECT * FROM booking WHERE requester = ?',
-      [username]
+      `SELECT b.*, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
+      lp.location_name AS return_pickup_location_name, ld.location_name AS return_destination_name
+    FROM booking b
+    LEFT JOIN locations lp ON b.return_pickup_location = lp.location_id
+    LEFT JOIN locations ld ON b.return_destination = ld.location_id
+    WHERE requester = ?;`
+  ,[username]
     );
 
     if (bookings.length === 0) {
@@ -72,8 +77,13 @@ app.get('/requestee_past_data', async (req, res) => {
     const bookingIds = bookings.map(b => b.booking_id);
 
     const [segments] = await connection_pool.query(
-      'SELECT * FROM booking_segment WHERE booking_id IN (?) ORDER BY booking_id, segment_order',
-      [bookingIds]
+      `SELECT bs.*, lp.location_name AS pickup_location_name, ld.location_name AS destination_name
+      FROM booking_segment bs
+      LEFT JOIN locations lp ON bs.pickup_location = lp.location_id
+      LEFT JOIN locations ld ON bs.destination = ld.location_id
+      WHERE bs.booking_id IN (?)
+      ORDER BY bs.booking_id, bs.segment_order;`
+    ,[bookingIds]
     )
 
     const segmentsByBooking = segments.reduce((acc, segment) => {
@@ -106,12 +116,13 @@ app.post('/makebooking', async (req, res) => {
 
     const {
       title,
+      date,
       passenger,
       luggage,
       segments,
       return_pickup_time,
-      return_pickup_location_name,
-      return_destination_name
+      return_pickup_location_id,
+      return_destination_id
     } = req.body;
 
     if (
@@ -129,18 +140,19 @@ app.post('/makebooking', async (req, res) => {
 
     const sqlbooking = `
       INSERT INTO booking
-      (requester, title, passenger, luggage, return_pickup_time, return_pickup_location, return_destination, requested_time, approval)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 0)
+      (title, booking_date ,requester, passenger, luggage, return_pickup_time, return_pickup_location, return_destination, requested_time, approval)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0)
     `;
 
     const [bookingResult] = await connection.query(sqlbooking, [
-      username,
       title,
+      date,
+      username,
       passenger,
       luggage ? 1 : 0,
       return_pickup_time || null,
-      return_pickup_location_name || null,
-      return_destination_name || null
+      return_pickup_location_id || null,
+      return_destination_id || null
     ]);
 
     const bookingId = bookingResult.insertId;
@@ -156,8 +168,8 @@ app.post('/makebooking', async (req, res) => {
         bookingId,
         segment.segment_order,
         segment.pickup_dept_time,
-        segment.pickup_dept_location_name,
-        segment.destination_name,
+        segment.pickup_dept_location_id,
+        segment.destination_id,
       ]);
     }
 
@@ -186,10 +198,92 @@ app.get('/schedule', async (req, res)=> {
 
     const date = req.query.date
     const [rows] = await connection_pool.query(
-      'SELECT * FROM booking WHERE DATE(pick_up_time_dept) = ?', // not all?
-      [date]
+      `(
+      SELECT
+        'segment' AS trip_type,
+
+        b.booking_id,
+        b.title,
+
+        s.segment_id        AS trip_id,
+        s.segment_order,
+
+        s.pickup_time       AS start_time,
+        s.pickup_location   AS source_location,
+        ls.location_name    AS source_name,
+        s.destination       AS destination_location,
+        ld.location_name    AS destination_name,
+
+        dm.duration_sec     AS time_matrix,
+        ta.manual_estimate,
+        ta.car_id
+
+      FROM booking b
+      JOIN booking_segment s
+        ON s.booking_id = b.booking_id
+
+      LEFT JOIN locations ls
+        ON ls.location_id = s.pickup_location
+
+      LEFT JOIN locations ld
+        ON ld.location_id = s.destination
+
+      LEFT JOIN distance_matrix dm
+        ON dm.source_location = s.pickup_location
+      AND dm.destination_location = s.destination
+
+      LEFT JOIN trip_assignment ta
+        ON ta.segment_id = s.segment_id
+      AND ta.is_return = 0
+
+      WHERE b.booking_date = ?
+    )
+
+    UNION ALL
+
+    (
+      SELECT
+        'return' AS trip_type,
+
+        b.booking_id,
+        b.title,
+
+        NULL AS trip_id,
+        NULL AS segment_order,
+
+        b.return_pickup_time AS start_time,
+        b.return_pickup_location AS source_location,
+        ls.location_name         AS source_name,
+        b.return_destination     AS destination_location,
+        ld.location_name         AS destination_name,
+
+        dm.duration_sec     AS time_matrix,
+        ta.manual_estimate,
+        ta.car_id
+
+      FROM booking b
+
+      LEFT JOIN locations ls
+        ON ls.location_id = b.return_pickup_location
+
+      LEFT JOIN locations ld
+        ON ld.location_id = b.return_destination
+
+      LEFT JOIN distance_matrix dm
+        ON dm.source_location = b.return_pickup_location
+      AND dm.destination_location = b.return_destination
+
+      LEFT JOIN trip_assignment ta
+        ON ta.booking_id = b.booking_id
+      AND ta.is_return = 1
+
+      WHERE b.booking_date = ?
+        AND b.return_pickup_time IS NOT NULL
+    )
+
+    ORDER BY start_time;`, [date, date]
     );
-    // console.log('q:', rows)
+    // console.log('/schedule:', rows)
     res.json(rows)
   } catch (error) {
     console.error(error);
@@ -197,62 +291,76 @@ app.get('/schedule', async (req, res)=> {
   }
 })
 
-app.get('/distancematrix', async (req, res)=> {
-  try {
-    // const username = req.session.user?.username
-    // if (!username) {
-    //   return res.status(401).json({ error: 'Not authenticated' });
-    // }
 
-    const date = req.query.date
-    const [rows] = await connection_pool.query(
-      'SELECT origin_lat,origin_long,destination_lat,destination_long,return_lat,return_long FROM booking WHERE DATE(pick_up_time_dept) = ?',
-      [date]
-    );
-    const latlongs = new Set();
-
-    rows.forEach(item => {
-      latlongs.add(`${item.origin_long},${item.origin_lat}`);
-      latlongs.add(`${item.destination_long},${item.destination_lat}`);
-      latlongs.add(`${item.return_long},${item.return_lat}`);
-    });
-
-    const locations = Array.from(latlongs).map(latlong => {
-      const [lng, lat] = latlong.split(',').map(Number);
-      return [lng, lat];
-    }); 
-
-    const ors_url = "http://localhost:8080/ors/v2/matrix/driving-car";
-    const ors_payload = {
-      locations,
-      metrics: ['duration']
+app.get('/cardata', async (req, res)=> {
+  try{
+    const username = req.session.user?.username
+    if (!username) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-    const ors_response = await fetch('http://localhost:8080/ors/v2/matrix/driving-car',{
-      method: 'POST',
-      headers: {
-        'Content-Type' : 'application/json'
-      },
-      body: JSON.stringify(ors_payload)
-    })
-
-    if (!ors_response.ok) {
-      const error = await ors_response.text();
-      throw new Error(`ORS API error: ${ors_response.status} - ${error}`)
-    }
-    
-    const matrix = await ors_response.json();
-
-    // console.log('q:', rows)
-    
-    res.json({
-      rows,
-      matrix})
-
+    const [car] = await connection_pool.query(`SELECT * from car`);
+    res.json(car)
   } catch (error) {
     console.error(error);
     res.status(500).send('Server error')
   }
 })
+// app.get('/distancematrix', async (req, res)=> {
+//   try {
+//     // const username = req.session.user?.username
+//     // if (!username) {
+//     //   return res.status(401).json({ error: 'Not authenticated' });
+//     // }
+
+//     const date = req.query.date
+//     const [rows] = await connection_pool.query(
+//       'SELECT origin_lat,origin_long,destination_lat,destination_long,return_lat,return_long FROM booking WHERE DATE(pick_up_time_dept) = ?',
+//       [date]
+//     );
+//     const latlongs = new Set();
+
+//     rows.forEach(item => {
+//       latlongs.add(`${item.origin_long},${item.origin_lat}`);
+//       latlongs.add(`${item.destination_long},${item.destination_lat}`);
+//       latlongs.add(`${item.return_long},${item.return_lat}`);
+//     });
+
+//     const locations = Array.from(latlongs).map(latlong => {
+//       const [lng, lat] = latlong.split(',').map(Number);
+//       return [lng, lat];
+//     }); 
+
+//     const ors_url = "http://localhost:8080/ors/v2/matrix/driving-car";
+//     const ors_payload = {
+//       locations,
+//       metrics: ['duration']
+//     }
+//     const ors_response = await fetch('http://localhost:8080/ors/v2/matrix/driving-car',{
+//       method: 'POST',
+//       headers: {
+//         'Content-Type' : 'application/json'
+//       },
+//       body: JSON.stringify(ors_payload)
+//     })
+
+//     if (!ors_response.ok) {
+//       const error = await ors_response.text();
+//       throw new Error(`ORS API error: ${ors_response.status} - ${error}`)
+//     }
+    
+//     const matrix = await ors_response.json();
+
+//     // console.log('q:', rows)
+    
+//     res.json({
+//       rows,
+//       matrix})
+
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send('Server error')
+//   }
+// })
 
 app.get('/locations', async (req,res) => {
   try {
@@ -288,7 +396,7 @@ app.post('/addnewlocation', async (req,res) => {
     await connection.beginTransaction();
 
     const [existingLocations] = await connection.query(
-      `SELECT location_id, location_lat, location_lng FROM locations`
+      `SELECT location_id, location_lat, location_lng FROM locations FOR UPDATE`
     )
 
     const sqlNewLocation = `
@@ -303,6 +411,11 @@ app.post('/addnewlocation', async (req,res) => {
       location_lng
     ]);
     const newLocationId = newLocationResult.insertId
+
+    if (existingLocations.length === 0){
+      await connection.commit();
+      return res.status(201).json({ message: 'Added new location, no distance calculated', newLocationId: newLocationId })
+    }
 
     const newLocCoords = [location_lng, location_lat];
     const existingLocCoords = existingLocations.map(loc => [loc.location_lng, loc.location_lat]);
@@ -332,25 +445,37 @@ app.post('/addnewlocation', async (req,res) => {
     const sqlDistanceMatrix = `
     INSERT INTO distance_matrix
     (source_location, destination_location, duration_sec, last_updated)
-    VALUES (?,?,?,?)
+    VALUES ?
     on DUPLICATE KEY UPDATE duration_sec = VALUES(duration_sec), last_updated = VALUES(last_updated)
     `
+    const values = [];
 
-    for (let j = 0; j < allCoords.length; j++) {
-      const destId = j === 0 ? newLocationId : existingLocations[j - 1].location_id;
-      const duration = durations[j];
+    durations.forEach((duration, index) => {
+      if (index === 0) return;
 
-      await connection.query(sqlDistanceMatrix, [
-        newLocationId,
-        destId,
-        duration, 
-        today
-      ]);
-    }
+      const otherLocationId = existingLocations[index - 1].location_id;
+
+      values.push([newLocationId, otherLocationId, duration, today]);
+      values.push([otherLocationId, newLocationId, duration, today]);
+    });
+
+    await connection.query(sqlDistanceMatrix, [values]);
+
+    // for (let j = 0; j < allCoords.length; j++) {
+    //   const destId = j === 0 ? newLocationId : existingLocations[j - 1].location_id;
+    //   const duration = durations[j];
+
+    //   await connection.query(sqlDistanceMatrix, [
+    //     newLocationId,
+    //     destId,
+    //     duration, 
+    //     today
+    //   ]);
+    // }
 
     await connection.commit();
 
-    res.status(201).json({ message: 'Added new location', newLocationId: newLocationId});
+    res.status(201).json({ message: 'Added new location, distance calculated', newLocationId: newLocationId});
   } catch (error) {
     if (connection) {
       await connection.rollback();

@@ -1,124 +1,288 @@
 <template>
   <div class="day-timetable">
     <div class="scroll-container">
-      <!-- Time Grid -->
+
+      <!-- TIME GRID -->
       <div class="time-grid">
         <div v-for="hour in hours" :key="hour" class="time-row">
           <div class="time-label">{{ formatHour(hour) }}</div>
-          <!-- <div class="time-line"></div> -->
         </div>
       </div>
 
-      <!-- Events Layer -->
+      <!-- EVENTS -->
       <div class="events-layer">
         <div
-          v-for="(event, index) in parsedSchedule"
-          :key="event.id || index"
+          v-for="event in layoutedEvents"
+          :key="event.id"
           class="event-block"
+          :class="event.type"
           :style="computeEventStyle(event)"
+          @mousedown="startDrag(event, $event)"
         >
-          <div class="event-title">Booking #{{ event.id }}</div>
-          <div class="event-time">{{ event.start }} - {{ event.end }}</div>
+          <div class="event-title">{{ event.title }}</div>
+          <div class="event-requester">{{ event.requester }}</div>
+
+          <!-- Resize handle -->
+          <div
+            class="resize-handle"
+            @mousedown.stop="startResize(event, $event)"
+          ></div>
+
+          <!-- Tooltip -->
+          <div class="tooltip">
+            <strong>{{ event.title }}</strong><br />
+            {{ secondsToTime(event.startSec) }} → {{ secondsToTime(event.endSec) }}<br />
+            Car: {{ event.carName || 'Unassigned' }} <br />
+          </div>
         </div>
       </div>
+
     </div>
   </div>
 </template>
 
 <script>
 export default {
+  name: 'DayTimetable',
+
   props: {
+    schedule: { type: Array, required: true },
+    carData: { type: Array, required: true },
+  },
+
+  data() {
+    return {
+      events: [],
+
+      // Drag state
+      draggingEvent: null,
+      dragStart: { x: 0, y: 0 },
+      original: { startSec: 0, carId: null },
+
+      // Resize state
+      resizingEvent: null,
+      resizeStartY: 0,
+      originalDurationSec: 0,
+    };
+  },
+
+  watch: {
     schedule: {
-      type: Array,
-      default: () => [],
-    },
+      immediate: true,
+      handler() {
+        this.events = this.schedule
+          .filter(r => r.start_time)
+          .map(this.parseRow);
+      }
+    }
   },
+
   computed: {
+    /* Hours for the left grid */
     hours() {
-    return Array.from({ length: 25 }, (_, i) => i);
-  },
-    parsedSchedule() {
-      const events = this.schedule.map((event) => {
-        const startStr = this.formatTime(event.pick_up_time_dept);
-        const endStr = this.formatTime(event.pick_up_time_return);
-        const startMin = this.parseTimeToMinutes(startStr);
-        const endMin = this.parseTimeToMinutes(endStr);
+      return Array.from({ length: 25 }, (_, i) => i);
+    },
 
-        console.log(event.id, event.pick_up_time_dept, new Date(event.pick_up_time_dept).toString(), startStr, startMin);
+    /* Normalize cars + add Unassigned */
+    carColumns() {
+      return [
+        ...this.carData.map(c => ({ id: c.car_id, name: c.car_name })),
+        { id: null, name: 'Unassigned' },
+      ];
+    },
 
-        return {
-          id: event.id,
-          start: startStr,
-          end: endStr,
-          startMin,
-          endMin,
-        };
+    totalColumns() {
+      return this.carColumns.length;
+    },
+
+    /* Group events by carId */
+    eventsByCar() {
+      const map = new Map();
+      this.events.forEach(e => {
+        const key = e.carId ?? 'unassigned';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(e);
+      });
+      return map;
+    },
+
+    /* Resolve overlaps per car and create layouted events */
+    layoutedEvents() {
+      const result = [];
+
+      this.carColumns.forEach(car => {
+        const key = car.id ?? 'unassigned';
+        const list = this.eventsByCar.get(key) || [];
+
+        this.resolveOverlaps(list);
+
+        list.forEach(e => {
+          e.carName = car.name;
+          result.push(e);
+        });
       });
 
-      events.sort((a, b) => a.startMin - b.startMin);
+      return result;
+    }
+  },
 
+  methods: {
+    /* ---------------- PARSER ---------------- */
+    parseRow(row) {
+      const startSec = this.timeToSeconds(row.start_time.slice(0, 5));
+      const durationSec =
+        row.manual_estimate != null ? row.manual_estimate : row.time_matrix;
+
+      return {
+        id:
+          row.trip_type === 'segment'
+            ? `seg-${row.trip_id}`
+            : `ret-${row.booking_id}`,
+        title: row.title,
+        requester: row.requester,
+        type: row.trip_type,
+        startSec,
+        durationSec,
+        endSec: startSec + durationSec,
+        carId: row.car_id ?? null,
+        subColumn: 0,
+        subColumns: 1,
+      };
+    },
+
+    /* ----------- OVERLAP RESOLUTION ---------- */
+    resolveOverlaps(events) {
+      events.sort((a, b) => a.startSec - b.startSec);
       const columns = [];
-      events.forEach((event) => {
+
+      events.forEach(event => {
         let col = 0;
         while (true) {
           if (!columns[col]) {
             columns[col] = [];
             break;
           }
+
           const overlap = columns[col].some(
-            (e) => !(event.endMin <= e.startMin || event.startMin >= e.endMin)
+            e => !(event.endSec <= e.startSec || event.startSec >= e.endSec)
           );
           if (!overlap) break;
           col++;
         }
         columns[col].push(event);
-        event.column = col;
+        event.subColumn = col;
       });
 
-      events.forEach((event) => {
-        const overlapping = events.filter(
-          (e) => !(event.endMin <= e.startMin || event.startMin >= e.endMin)
-        );
-        const maxCol = Math.max(...overlapping.map((e) => e.column));
-        event.totalColumns = maxCol + 1;
-      });
+      const total = columns.length;
+      events.forEach(e => (e.subColumns = total));
+    },
 
-      return events;
-    },
-  },
-  methods: {
-    formatHour(hour) {
-      return hour.toString().padStart(2, '0') + ':00';
-    },
-    formatTime(isoString) {
-      const date = new Date(isoString);
-      const h = date.getHours().toString().padStart(2, '0');
-      const m = date.getMinutes().toString().padStart(2, '0');
-      return `${h}:${m}`;
-    },
-    parseTimeToMinutes(timeStr) {
-      const [hour, minute] = timeStr.split(':').map(Number);
-      return hour * 60 + minute;
-    },
+    /* ---------------- STYLE ----------------- */
     computeEventStyle(event) {
-      const pixelsPerMinute = (50 + 1) / 60;
+      const pixelsPerSecond = 100 / 3600;
+      const baseWidth = 160;
+      const gap = 6;
 
-      const top = event.startMin * pixelsPerMinute;
-      const height = (event.endMin - event.startMin) * pixelsPerMinute;
+      const carIndex = this.carColumns.findIndex(c => c.id === event.carId);
 
-      const columnWidth = 145;
-      const columnGap = 5;
+      const top = event.startSec * pixelsPerSecond;
+      const height = Math.max(event.durationSec * pixelsPerSecond, 30);
 
-      const left = (columnWidth + columnGap) * event.column;
+      const subWidth = (baseWidth - (event.subColumns - 1) * gap) / event.subColumns;
+      const left = carIndex * (baseWidth + gap) + event.subColumn * (subWidth + gap);
 
       return {
-        position: 'absolute',
         top: `${top}px`,
         height: `${height}px`,
-        width: `${columnWidth}px`,
+        width: `${subWidth}px`,
         left: `${left}px`,
+        background: this.subColumnColor(event.subColumn),
       };
     },
+
+    subColumnColor(i) {
+      const colors = ['#4caf50', '#2196f3', '#9c27b0', '#ff5722'];
+      return colors[i % colors.length];
+    },
+
+    /* ---------------- DRAG ------------------ */
+    startDrag(event, e) {
+      if (this.resizingEvent) return;
+
+      this.draggingEvent = event;
+      this.dragStart = { x: e.clientX, y: e.clientY };
+      this.original.startSec = event.startSec;
+      this.original.carId = event.carId;
+
+      document.addEventListener('mousemove', this.onDrag);
+      document.addEventListener('mouseup', this.stopDrag);
+    },
+
+    onDrag(e) {
+      if (!this.draggingEvent) return;
+
+      const pixelsPerSecond = 100 / 3600;
+
+      // vertical
+      const deltaY = e.clientY - this.dragStart.y;
+      const secDelta = Math.round(deltaY / pixelsPerSecond);
+
+      this.draggingEvent.startSec = Math.max(0, this.original.startSec + secDelta);
+      this.draggingEvent.endSec = this.draggingEvent.startSec + this.draggingEvent.durationSec;
+
+      // horizontal
+      const deltaX = e.clientX - this.dragStart.x;
+      const colWidth = 160 + 6;
+      const shift = Math.round(deltaX / colWidth);
+
+      const originalIndex = this.carColumns.findIndex(c => c.id === this.original.carId);
+      let newIndex = originalIndex + shift;
+      newIndex = Math.max(0, Math.min(newIndex, this.totalColumns - 1));
+
+      this.draggingEvent.carId = this.carColumns[newIndex].id;
+    },
+
+    stopDrag() {
+      document.removeEventListener('mousemove', this.onDrag);
+      document.removeEventListener('mouseup', this.stopDrag);
+      this.draggingEvent = null;
+      // save event if needed
+    },
+
+    /* ---------------- RESIZE ---------------- */
+    startResize(event, e) {
+      this.resizingEvent = event;
+      this.resizeStartY = e.clientY;
+      this.originalDurationSec = event.durationSec;
+
+      document.addEventListener('mousemove', this.onResize);
+      document.addEventListener('mouseup', this.stopResize);
+    },
+
+    onResize(e) {
+      if (!this.resizingEvent) return;
+
+      const pixelsPerSecond = 100 / 3600;
+      const deltaY = e.clientY - this.resizeStartY;
+      const secDelta = Math.round(deltaY / pixelsPerSecond);
+
+      const MIN_DURATION = 5 * 60; // 5 minutes
+
+      this.resizingEvent.durationSec = Math.max(MIN_DURATION, this.originalDurationSec + secDelta);
+      this.resizingEvent.endSec = this.resizingEvent.startSec + this.resizingEvent.durationSec;
+    },
+
+    stopResize() {
+      document.removeEventListener('mousemove', this.onResize);
+      document.removeEventListener('mouseup', this.stopResize);
+      this.resizingEvent = null;
+      // save event if needed
+    },
+
+    /* ---------------- TIME ------------------ */
+    formatHour(h) { return `${String(h).padStart(2, '0')}:00`; },
+    timeToSeconds(t) { const [h, m] = t.split(':').map(Number); return h * 3600 + m * 60; },
+    secondsToTime(s) { const h = Math.floor(s / 3600) % 24; const m = Math.floor((s % 3600) / 60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; },
   }
 };
 </script>
@@ -129,74 +293,80 @@ export default {
   background: #f9f9f9;
   font-family: Arial, sans-serif;
   overflow-x: auto;
-  position: relative;
 }
 
-/* Scrollable timeline */
 .scroll-container {
   position: relative;
-  height: calc(24 * 50px);
-  min-height: 1200px;
-}
-
-/* Time grid */
-.time-grid {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: 1;
+  height: calc(24 * 100px);
 }
 
 .time-row {
-  position: relative;
-  height: 50px;
+  height: 100px;
   border-top: 1px solid #e0e0e0;
-  vertical-align: top;
-  text-align: left;
 }
 
 .time-label {
-  /* position: absolute;
-  top: 50%;
-  left: 0; */
-  width: 60px;
-  padding: 3px 5px;
   font-size: 12px;
-  color: #555;
+  padding: 4px;
+  width: 60px;
 }
 
-/* Event container */
 .events-layer {
   position: absolute;
   top: 0;
-  left: 60px; /* Leave room for time labels */
+  left: 60px;
   right: 0;
-  z-index: 2;
-  height: 1200px;
-  background-color: transparent;
 }
 
-/* Each event block */
 .event-block {
   position: absolute;
-  background-color: #2196f3;
-  color: white;
+  color: #fff;
   border-radius: 4px;
-  padding: 4px 6px;
+  padding: 4px;
   font-size: 12px;
-  box-sizing: border-box;
-  overflow: hidden;
-  z-index: 3;
-  pointer-events: auto;
+  cursor: grab;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  background: rgba(255,255,255,0.35);
+  border-radius: 0 0 4px 4px;
+}
+
+.event-block:hover .resize-handle {
+  background: rgba(255,255,255,0.6);
+}
+
+.tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: rgba(0,0,0,.85);
+  color: #fff;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.event-block:hover .tooltip {
+  opacity: 1;
 }
 
 .event-title {
   font-weight: bold;
+  overflow: hidden;
 }
 
-.event-time {
-  font-size: 0.75em;
-  opacity: 0.8;
+.event-requester {
+  opacity: 0.85;
 }
 </style>
