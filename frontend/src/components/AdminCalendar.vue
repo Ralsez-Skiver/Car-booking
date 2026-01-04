@@ -116,9 +116,6 @@ export default {
 <style scoped>
 .calendar-container {
   padding: 1rem 1rem;
-  border-right: solid;
-  border-width: 1px;
-  border-color: #e0e0e0;
 }
 
 .calendar {

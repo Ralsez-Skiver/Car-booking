@@ -30,7 +30,6 @@ app.post('/login', (req, res) => {
   if (!username || !role) {
     return res.status(400).json({ error: 'Username and role required' });
   }
-
   // save usr session
   req.session.user = { username, role };
   res.json({ message: 'Login successful', user: req.session.user });
@@ -53,139 +52,161 @@ app.post('/logout', (req, res) => {
 
 app.get('/requestee_past_data', async (req, res) => {
   try {
-    // console.log('Session:', req.session);
-    const username = req.session.user?.username
+    const username = req.session.user?.username;
+    if (!username) return res.status(401).json({ error: 'Not authenticated' });
 
-    if (!username) {
-      return res.status(401).json({ error: 'Not authenticated' })
-    }
+    // 1. Get the main Bookings
+    const [bookings] = await connection_pool.query(`
+      SELECT 
+        booking_id, title, requester, booking_type, 
+        DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date, 
+        approval
+      FROM booking
+      WHERE requester = ? 
+      ORDER BY booking_date DESC
+    `, [username]);
 
-    const [bookings] = await connection_pool.query(
-      `SELECT b.*, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
-      lp.location_name AS return_pickup_location_name, ld.location_name AS return_destination_name
-    FROM booking b
-    LEFT JOIN locations lp ON b.return_pickup_location = lp.location_id
-    LEFT JOIN locations ld ON b.return_destination = ld.location_id
-    WHERE requester = ?;`
-  ,[username]
-    );
-
-    if (bookings.length === 0) {
-      return res.json([]);
-    }
+    if (bookings.length === 0) return res.json([]);
 
     const bookingIds = bookings.map(b => b.booking_id);
 
-    const [segments] = await connection_pool.query(
-      `SELECT bs.*, lp.location_name AS pickup_location_name, ld.location_name AS destination_name
+    // 2. Get ALL segments (Outbound AND Return are now in this one table)
+    const [segments] = await connection_pool.query(`
+      SELECT 
+        bs.segment_id, bs.booking_id, bs.segment_order, bs.is_return_trip,
+        bs.pickup_location, lp.location_name AS pickup_location_name,
+        bs.destination, ld.location_name AS destination_name,
+        bs.pickup_time
       FROM booking_segment bs
       LEFT JOIN locations lp ON bs.pickup_location = lp.location_id
       LEFT JOIN locations ld ON bs.destination = ld.location_id
       WHERE bs.booking_id IN (?)
-      ORDER BY bs.booking_id, bs.segment_order;`
-    ,[bookingIds]
-    )
+      ORDER BY bs.booking_id, bs.segment_order
+    `, [bookingIds]);
 
-    const segmentsByBooking = segments.reduce((acc, segment) => {
-      if (!acc[segment.booking_id]) {
-        acc[segment.booking_id] = [];
-        }
-      acc[segment.booking_id].push(segment);
+    // 3. (Optional) Get Deliveries if you want to show postal info
+    const [deliveries] = await connection_pool.query(`
+      SELECT * FROM deliveries WHERE booking_id IN (?)
+    `, [bookingIds]);
+
+    // 4. Merge Data
+    const segmentsByBooking = segments.reduce((acc, seg) => {
+      if (!acc[seg.booking_id]) acc[seg.booking_id] = [];
+      acc[seg.booking_id].push(seg);
       return acc;
-      }, {});
+    }, {});
 
-      const fullData = bookings.map(booking => ({
-        ...booking,
-        segments: segmentsByBooking[booking.booking_id] || []
-        }));
-    // console.log(JSON.stringify(fullData, null, 2));
+    const deliveriesByBooking = deliveries.reduce((acc, del) => {
+      acc[del.booking_id] = del;
+      return acc;
+    }, {});
+
+    const fullData = bookings.map(b => ({
+      ...b,
+      segments: segmentsByBooking[b.booking_id] || [],
+      delivery_details: deliveriesByBooking[b.booking_id] || null
+    }));
+    console.log('past_data:', fullData)
     res.json(fullData);
   } catch (error) {
     console.error(error);
-    res.status(500).send('Server error')
+    res.status(500).send('Server error');
   }
-})
+});
 
+
+// --- CHANGED: MAKE BOOKING ---
 app.post('/makebooking', async (req, res) => {
   let connection;
   try {
-    const username = req.session.user?.username
-    if (!username) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+    const username = req.session.user?.username;
+    if (!username) return res.status(401).json({ error: 'Not authenticated' });
 
     const {
-      title,
-      date,
-      passenger,
-      luggage,
-      segments,
-      return_pickup_time,
-      return_pickup_location_id,
-      return_destination_id
+      title, date, passenger, luggage, // Basic Info
+      segments,                        // Array of outbound segments
+      return_pickup_time,              // Legacy Frontend Data
+      return_pickup_location_id,       // Legacy Frontend Data
+      return_destination_id,           // Legacy Frontend Data
+      booking_type = 'passenger',      // Default to passenger
+      delivery_details                 // Object: { recipient, item_desc, weight }
     } = req.body;
 
-    if (
-      !title ||
-      !passenger ||
-      !segments ||
-      !Array.isArray(segments) ||
-      segments.length === 0
-    ) {
-      return res.status(400).json({ error: 'Invalid booking data: No title passenger or segment.' });
+    if (!title || !date || !segments || segments.length === 0) {
+      return res.status(400).json({ error: 'Invalid data' });
     }
 
     connection = await connection_pool.getConnection();
     await connection.beginTransaction();
 
-    const sqlbooking = `
-      INSERT INTO booking
-      (title, booking_date ,requester, passenger, luggage, return_pickup_time, return_pickup_location, return_destination, requested_time, approval)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0)
+    // 1. Insert into BOOKINGS
+    const [bookingRes] = await connection.query(`
+      INSERT INTO booking 
+      (title, booking_date, requester, booking_type, passenger, luggage, approval)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, [title, date, username, booking_type, passenger || 0, luggage ? 1 : 0]);
+    
+    const bookingId = bookingRes.insertId;
+
+    // 2. Insert Outbound Segments
+    const segmentSql = `
+      INSERT INTO booking_segment
+      (booking_id, segment_order, pickup_location, destination, pickup_time, is_return_trip)
+      VALUES (?, ?, ?, ?, ?, 0)
     `;
 
-    const [bookingResult] = await connection.query(sqlbooking, [
-      title,
-      date,
-      username,
-      passenger,
-      luggage ? 1 : 0,
-      return_pickup_time || null,
-      return_pickup_location_id || null,
-      return_destination_id || null
-    ]);
+    // Note: 'segment_order' logic here assumes the frontend sends order, 
+    // or we can auto-increment i.
+    let orderCounter = 1;
 
-    const bookingId = bookingResult.insertId;
-
-    const sqlsegment = `
-      INSERT INTO booking_segment
-      (booking_id, segment_order, pickup_time, pickup_location, destination)
-      VALUES (?, ?, ?, ?, ?)
-    `
-
-    for (const segment of segments) {
-      await connection.query(sqlsegment,[
+    for (const seg of segments) {
+      await connection.query(segmentSql, [
         bookingId,
-        segment.segment_order,
-        segment.pickup_dept_time,
-        segment.pickup_dept_location_id,
-        segment.destination_id,
+        seg.segment_order || orderCounter++, 
+        seg.pickup_dept_location_id,
+        seg.destination_id,
+        // If postal, time might be null
+        booking_type === 'postal' ? null : seg.pickup_dept_time 
+      ]);
+    }
+
+    // 3. Handle Return Trip (Convert Legacy Frontend Data to a New Segment Row)
+    if (return_pickup_time && return_pickup_location_id && return_destination_id) {
+      await connection.query(`
+        INSERT INTO booking_segment
+        (booking_id, segment_order, pickup_location, destination, pickup_time, is_return_trip)
+        VALUES (?, ?, ?, ?, ?, 1)
+      `, [
+        bookingId,
+        orderCounter++, // Increment order
+        return_pickup_location_id,
+        return_destination_id,
+        return_pickup_time
+      ]);
+    }
+
+    // 4. Handle Postal Delivery Details
+    if (booking_type === 'postal' && delivery_details) {
+      await connection.query(`
+        INSERT INTO deliveries (booking_id, recipient_name, item_description, item_weight_kg)
+        VALUES (?, ?, ?, ?)
+      `, [
+        bookingId, 
+        delivery_details.recipient_name, 
+        delivery_details.item_description, 
+        delivery_details.item_weight_kg
       ]);
     }
 
     await connection.commit();
-
     res.status(201).json({ message: 'Booking saved successfully' });
+
   } catch (error) {
-    if (connection) {
-      await connection.rollback();
-    }
+    if (connection) await connection.rollback();
     console.error('Error saving booking:', error);
-    res.status(500).json({ error: 'Server error saving booking' });
+    res.status(500).json({ error: 'Server error' });
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
   }
 });
 
@@ -198,92 +219,55 @@ app.get('/schedule', async (req, res)=> {
 
     const date = req.query.date
     const [rows] = await connection_pool.query(
-      `(
-      SELECT
-        'segment' AS trip_type,
-
+      `
+      SELECT 
+        -- Booking Info
         b.booking_id,
         b.title,
+        b.booking_type,
+        b.approval,
 
-        s.segment_id        AS trip_id,
+        -- Segment Info
+        s.segment_id   AS trip_id,
         s.segment_order,
+        s.is_return_trip,
+        
+        -- Times & Locs
+        s.pickup_time AS start_time,
+        
+        s.pickup_location    AS source_location,
+        ls.location_name     AS source_name,
+        
+        s.destination        AS destination_location,
+        ld.location_name     AS destination_name,
 
-        s.pickup_time       AS start_time,
-        s.pickup_location   AS source_location,
-        ls.location_name    AS source_name,
-        s.destination       AS destination_location,
-        ld.location_name    AS destination_name,
+        -- Assignment / Overrides
+        dm.duration_sec      AS time_matrix,
+        ta.manual_start_time,
+        ta.manual_duration_sec AS manual_estimate,
+        ta.car_id,
+        c.car_name
 
-        dm.duration_sec     AS time_matrix,
-        ta.manual_estimate,
-        ta.car_id
+      FROM booking_segment s
+      JOIN booking b ON b.booking_id = s.booking_id
+      
+      -- Location Joins
+      LEFT JOIN locations ls ON ls.location_id = s.pickup_location
+      LEFT JOIN locations ld ON ld.location_id = s.destination
 
-      FROM booking b
-      JOIN booking_segment s
-        ON s.booking_id = b.booking_id
+      -- Distance Matrix Join
+      LEFT JOIN distance_matrix dm 
+        ON dm.source_location = s.pickup_location 
+        AND dm.destination_location = s.destination
 
-      LEFT JOIN locations ls
-        ON ls.location_id = s.pickup_location
-
-      LEFT JOIN locations ld
-        ON ld.location_id = s.destination
-
-      LEFT JOIN distance_matrix dm
-        ON dm.source_location = s.pickup_location
-      AND dm.destination_location = s.destination
-
-      LEFT JOIN trip_assignment ta
-        ON ta.segment_id = s.segment_id
-      AND ta.is_return = 0
-
-      WHERE b.booking_date = ?
-    )
-
-    UNION ALL
-
-    (
-      SELECT
-        'return' AS trip_type,
-
-        b.booking_id,
-        b.title,
-
-        NULL AS trip_id,
-        NULL AS segment_order,
-
-        b.return_pickup_time AS start_time,
-        b.return_pickup_location AS source_location,
-        ls.location_name         AS source_name,
-        b.return_destination     AS destination_location,
-        ld.location_name         AS destination_name,
-
-        dm.duration_sec     AS time_matrix,
-        ta.manual_estimate,
-        ta.car_id
-
-      FROM booking b
-
-      LEFT JOIN locations ls
-        ON ls.location_id = b.return_pickup_location
-
-      LEFT JOIN locations ld
-        ON ld.location_id = b.return_destination
-
-      LEFT JOIN distance_matrix dm
-        ON dm.source_location = b.return_pickup_location
-      AND dm.destination_location = b.return_destination
-
-      LEFT JOIN trip_assignment ta
-        ON ta.booking_id = b.booking_id
-      AND ta.is_return = 1
+      -- Trip Assignment Join (1:1 now)
+      LEFT JOIN trip_assignments ta ON ta.segment_id = s.segment_id
+      LEFT JOIN car c ON ta.car_id = c.car_id
 
       WHERE b.booking_date = ?
-        AND b.return_pickup_time IS NOT NULL
-    )
-
-    ORDER BY start_time;`, [date, date]
+      ORDER BY COALESCE(ta.manual_start_time, s.pickup_time) ASC`, [date, date]
     );
-    // console.log('/schedule:', rows)
+    console.log('schedule:', rows)
     res.json(rows)
   } catch (error) {
     console.error(error);
@@ -305,62 +289,6 @@ app.get('/cardata', async (req, res)=> {
     res.status(500).send('Server error')
   }
 })
-// app.get('/distancematrix', async (req, res)=> {
-//   try {
-//     // const username = req.session.user?.username
-//     // if (!username) {
-//     //   return res.status(401).json({ error: 'Not authenticated' });
-//     // }
-
-//     const date = req.query.date
-//     const [rows] = await connection_pool.query(
-//       'SELECT origin_lat,origin_long,destination_lat,destination_long,return_lat,return_long FROM booking WHERE DATE(pick_up_time_dept) = ?',
-//       [date]
-//     );
-//     const latlongs = new Set();
-
-//     rows.forEach(item => {
-//       latlongs.add(`${item.origin_long},${item.origin_lat}`);
-//       latlongs.add(`${item.destination_long},${item.destination_lat}`);
-//       latlongs.add(`${item.return_long},${item.return_lat}`);
-//     });
-
-//     const locations = Array.from(latlongs).map(latlong => {
-//       const [lng, lat] = latlong.split(',').map(Number);
-//       return [lng, lat];
-//     }); 
-
-//     const ors_url = "http://localhost:8080/ors/v2/matrix/driving-car";
-//     const ors_payload = {
-//       locations,
-//       metrics: ['duration']
-//     }
-//     const ors_response = await fetch('http://localhost:8080/ors/v2/matrix/driving-car',{
-//       method: 'POST',
-//       headers: {
-//         'Content-Type' : 'application/json'
-//       },
-//       body: JSON.stringify(ors_payload)
-//     })
-
-//     if (!ors_response.ok) {
-//       const error = await ors_response.text();
-//       throw new Error(`ORS API error: ${ors_response.status} - ${error}`)
-//     }
-    
-//     const matrix = await ors_response.json();
-
-//     // console.log('q:', rows)
-    
-//     res.json({
-//       rows,
-//       matrix})
-
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send('Server error')
-//   }
-// })
 
 app.get('/locations', async (req,res) => {
   try {
@@ -460,18 +388,6 @@ app.post('/addnewlocation', async (req,res) => {
     });
 
     await connection.query(sqlDistanceMatrix, [values]);
-
-    // for (let j = 0; j < allCoords.length; j++) {
-    //   const destId = j === 0 ? newLocationId : existingLocations[j - 1].location_id;
-    //   const duration = durations[j];
-
-    //   await connection.query(sqlDistanceMatrix, [
-    //     newLocationId,
-    //     destId,
-    //     duration, 
-    //     today
-    //   ]);
-    // }
 
     await connection.commit();
 

@@ -16,4 +16,12 @@ html, body, #app {
   padding: 0;
   overflow-x: hidden;
 }
+
+.no-select,
+.no-select * {
+  user-select: none !important;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 </style>
